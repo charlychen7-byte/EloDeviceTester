@@ -1,0 +1,14 @@
+R_DEF: Internal format may change without notice
+local
+color accent
+color cell_bg
+color cell_disabled
+color error
+color ok
+color primary
+color primary_dark
+color warn
+drawable ic_launcher
+string app_name
+style Theme.EloDeviceTester
+style Theme.EloDeviceTester.Fullscreen

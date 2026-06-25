@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!-- Vibrator -->
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <!-- Camera -->
+    <uses-permission android:name="android.permission.CAMERA" />
+
+    <!-- Microphone -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
+    <!-- Location / GPS -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+
+    <!-- NFC -->
+    <uses-permission android:name="android.permission.NFC" />
+
+    <!-- Wi-Fi / network -->
+    <uses-permission android:name="android.permission.ACCESS_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- Bluetooth (legacy, <= API 30) -->
+    <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
+    <!-- Bluetooth (API 31+) -->
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"
+        tools:targetApi="s" />
+
+    <!-- Hardware features: all optional so the app installs on any device.
+         Actual presence is probed at runtime (HardwareDetector). -->
+    <uses-feature android:name="android.hardware.nfc" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.wifi" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
+    <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.compass" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.light" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.proximity" android:required="false" />
+
+    <application
+        android:allowBackup="true"
+        android:icon="@drawable/ic_launcher"
+        android:roundIcon="@drawable/ic_launcher"
+        android:label="@string/app_name"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.EloDeviceTester">
+
+        <activity android:name=".MainActivity" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <activity android:name=".modules.ddr.DdrActivity" />
+        <activity android:name=".modules.storage.StorageActivity" />
+        <activity android:name=".modules.nfc.NfcActivity" android:launchMode="singleTop" />
+        <activity android:name=".modules.gps.GpsActivity" />
+        <activity android:name=".modules.vibrator.VibratorActivity" />
+        <activity android:name=".modules.display.DisplayActivity" />
+        <activity android:name=".modules.display.ColorTestActivity"
+            android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
+        <activity android:name=".modules.display.GrayscaleActivity"
+            android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
+        <activity android:name=".modules.touch.TouchActivity" />
+        <activity android:name=".modules.touch.MultiTouchActivity"
+            android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
+        <activity android:name=".modules.touch.TouchGridActivity"
+            android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
+        <activity android:name=".modules.audio.AudioActivity" />
+        <activity android:name=".modules.camera.CameraActivity" />
+        <activity android:name=".modules.wifibt.WifiBtActivity" />
+        <activity android:name=".modules.sensors.SensorsActivity" />
+        <activity android:name=".modules.battery.BatteryActivity" />
+    </application>
+</manifest>
