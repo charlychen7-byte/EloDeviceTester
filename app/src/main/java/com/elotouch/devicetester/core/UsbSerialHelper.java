@@ -10,6 +10,8 @@ import android.hardware.usb.UsbDeviceConnection;
 import android.hardware.usb.UsbManager;
 import android.os.Build;
 
+import androidx.core.content.ContextCompat;
+
 import com.hoho.android.usbserial.driver.UsbSerialDriver;
 import com.hoho.android.usbserial.driver.UsbSerialPort;
 import com.hoho.android.usbserial.driver.UsbSerialProber;
@@ -39,11 +41,21 @@ public final class UsbSerialHelper {
         return UsbSerialProber.getDefaultProber().findAllDrivers(manager);
     }
 
-    public static void requestPermission(Context context, UsbDevice device, PermissionCallback callback) {
+    /**
+     * Requests permission to access the given USB device, if not already
+     * granted. Returns the {@link BroadcastReceiver} registered to await the
+     * OS permission-dialog result, or {@code null} if permission was already
+     * granted (in which case {@code callback} ran synchronously and no
+     * receiver was registered). Callers should hold onto the returned
+     * receiver and pass it to {@link #unregisterQuietly} (e.g. from
+     * {@code onStopTests()}) in case the user navigates away before the
+     * dialog is answered.
+     */
+    public static BroadcastReceiver requestPermission(Context context, UsbDevice device, PermissionCallback callback) {
         UsbManager manager = (UsbManager) context.getSystemService(Context.USB_SERVICE);
         if (manager.hasPermission(device)) {
             callback.onResult(true);
-            return;
+            return null;
         }
         int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                 ? PendingIntent.FLAG_MUTABLE : 0;
@@ -62,8 +74,22 @@ public final class UsbSerialHelper {
                 callback.onResult(granted);
             }
         };
-        context.registerReceiver(holder[0], new IntentFilter(ACTION_USB_PERMISSION));
+        // ACTION_USB_PERMISSION is an app-defined (non-protected) broadcast;
+        // Android 14+ requires an explicit export flag for context-registered
+        // receivers of non-protected broadcasts. This receiver is only ever
+        // sent to from within this app, so RECEIVER_NOT_EXPORTED is correct.
+        ContextCompat.registerReceiver(context, holder[0],
+                new IntentFilter(ACTION_USB_PERMISSION), ContextCompat.RECEIVER_NOT_EXPORTED);
         manager.requestPermission(device, pi);
+        return holder[0];
+    }
+
+    /** Unregisters {@code receiver} if non-null, swallowing "not registered" errors. */
+    public static void unregisterQuietly(Context context, BroadcastReceiver receiver) {
+        if (receiver == null) return;
+        try {
+            context.unregisterReceiver(receiver);
+        } catch (IllegalArgumentException ignored) { }
     }
 
     public static UsbSerialPort open(Context context, UsbSerialDriver driver, int baudRate) throws IOException {

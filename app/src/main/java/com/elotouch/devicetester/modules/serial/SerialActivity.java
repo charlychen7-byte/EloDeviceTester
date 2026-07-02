@@ -1,5 +1,6 @@
 package com.elotouch.devicetester.modules.serial;
 
+import android.content.BroadcastReceiver;
 import android.widget.TextView;
 
 import com.elotouch.devicetester.core.BaseTestActivity;
@@ -27,6 +28,7 @@ public class SerialActivity extends BaseTestActivity {
     private TextView devicesText;
     private TextView ioText;
     private UsbSerialPort openPort;
+    private BroadcastReceiver pendingUsbReceiver;
 
     @Override
     protected String title() {
@@ -77,7 +79,7 @@ public class SerialActivity extends BaseTestActivity {
             return;
         }
         UsbSerialDriver driver = drivers.get(0);
-        UsbSerialHelper.requestPermission(this, driver.getDevice(), granted -> ui(() -> {
+        pendingUsbReceiver = UsbSerialHelper.requestPermission(this, driver.getDevice(), granted -> ui(() -> {
             if (!granted) {
                 ioText.setText("Permission denied. 权限受限：用户拒绝了 USB 访问授权。");
                 return;
@@ -108,7 +110,7 @@ public class SerialActivity extends BaseTestActivity {
                 String received = read > 0
                         ? new String(buffer, 0, read, StandardCharsets.US_ASCII)
                         : "(no reply within 2s 2 秒内无回应，若无自环/应答外设属正常现象)";
-                ui(() -> ioText.setText("Sent 已发送 ELO-TEST\\n\nReceived 收到：" + received));
+                ui(() -> ioText.setText("Sent 已发送 ELO-TEST\nReceived 收到：" + received));
             } catch (Exception e) {
                 ui(() -> ioText.setText("I/O error 通信出错：" + e.getMessage()));
             }
@@ -163,5 +165,7 @@ public class SerialActivity extends BaseTestActivity {
     @Override
     protected void onStopTests() {
         closeQuietly();
+        UsbSerialHelper.unregisterQuietly(this, pendingUsbReceiver);
+        pendingUsbReceiver = null;
     }
 }

@@ -1,5 +1,6 @@
 package com.elotouch.devicetester.modules.msr;
 
+import android.content.BroadcastReceiver;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.widget.EditText;
@@ -27,6 +28,8 @@ public class MsrActivity extends BaseTestActivity {
     private TextView swipeText;
     private TextView icText;
     private EditText wedgeInput;
+    private BroadcastReceiver pendingUsbReceiver;
+    private volatile UsbSerialPort activePort;
 
     @Override
     protected String title() {
@@ -85,7 +88,7 @@ public class MsrActivity extends BaseTestActivity {
         }
         UsbSerialDriver driver = drivers.get(0);
         icText.setText("Waiting for card (" + mode + ")… 等待读卡（" + mode + "）…");
-        UsbSerialHelper.requestPermission(this, driver.getDevice(), granted -> ui(() -> {
+        pendingUsbReceiver = UsbSerialHelper.requestPermission(this, driver.getDevice(), granted -> ui(() -> {
             if (!granted) {
                 icText.setText("Permission denied. 权限受限。");
                 return;
@@ -94,6 +97,7 @@ public class MsrActivity extends BaseTestActivity {
                 UsbSerialPort port = null;
                 try {
                     port = UsbSerialHelper.open(this, driver, 9600);
+                    activePort = port;
                     byte[] buffer = new byte[256];
                     int read = port.read(buffer, 5000);
                     String hex = toHex(buffer, read);
@@ -105,6 +109,7 @@ public class MsrActivity extends BaseTestActivity {
                     ui(() -> icText.setText("Read failed 读取失败：" + e.getMessage()));
                 } finally {
                     if (port != null) { try { port.close(); } catch (Exception ignored) { } }
+                    activePort = null;
                 }
             });
         }));
@@ -125,5 +130,15 @@ public class MsrActivity extends BaseTestActivity {
     protected void onResume() {
         super.onResume();
         refreshConnection();
+    }
+
+    @Override
+    protected void onStopTests() {
+        UsbSerialHelper.unregisterQuietly(this, pendingUsbReceiver);
+        pendingUsbReceiver = null;
+        if (activePort != null) {
+            try { activePort.close(); } catch (Exception ignored) { }
+            activePort = null;
+        }
     }
 }
