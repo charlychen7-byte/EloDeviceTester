@@ -8,6 +8,7 @@ import com.elotouch.devicetester.modules.battery.BatteryActivity;
 import com.elotouch.devicetester.modules.camera.CameraActivity;
 import com.elotouch.devicetester.modules.ddr.DdrActivity;
 import com.elotouch.devicetester.modules.display.DisplayActivity;
+import com.elotouch.devicetester.modules.displayext.DisplayExtActivity;
 import com.elotouch.devicetester.modules.gps.GpsActivity;
 import com.elotouch.devicetester.modules.msr.MsrActivity;
 import com.elotouch.devicetester.modules.nfc.NfcActivity;
@@ -39,7 +40,8 @@ public enum TestModule {
     SENSORS("Sensors / 传感器", "🧭", SensorsActivity.class, HardwareDetector.Feature.SENSORS),
     BARCODE("Barcode/QR / 条码扫描", "🔍", BarcodeActivity.class, HardwareDetector.Feature.ALWAYS),
     MSR("MSR / 刷卡器", "💳", MsrActivity.class, HardwareDetector.Feature.ALWAYS),
-    SERIAL_IO("Serial I/O / 序口外设", "🖨️", SerialActivity.class, HardwareDetector.Feature.ALWAYS);
+    SERIAL_IO("Serial I/O / 序口外设", "🖨️", SerialActivity.class, HardwareDetector.Feature.ALWAYS),
+    DISPLAY_EXT("Display Ext / 双屏网络", "📺", DisplayExtActivity.class, HardwareDetector.Feature.ALWAYS);
 
     public final String title;
     public final String icon;

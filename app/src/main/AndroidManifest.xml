@@ -89,5 +89,6 @@
         <activity android:name=".modules.barcode.BarcodeActivity" />
         <activity android:name=".modules.msr.MsrActivity" />
         <activity android:name=".modules.serial.SerialActivity" />
+        <activity android:name=".modules.displayext.DisplayExtActivity" />
     </application>
 </manifest>
