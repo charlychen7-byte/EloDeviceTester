@@ -40,5 +40,24 @@ public class DisplayActivity extends BaseTestActivity {
                 "Nominal refresh rate 标称刷新率：%.1f Hz\n"
                         + "(Reads the system nominal value; the system may downclock, so it is "
                         + "not the measured frame rate. 读取系统标称值，系统可能动态降频，非实测帧率)", hz));
+
+        addSectionTitle("Color Accuracy / 颜色准确度与色域");
+        addInfo("Standard swatches with target RGB overlay, for external colorimeter or eye "
+                + "comparison. Not an automatic pass/fail.\n"
+                + "显示标准色块并叠加目标 RGB 数值，供外部仪器或人工比对，不做自动判定。");
+        addButton("Start Color Accuracy Test / 开始色准测试", () ->
+                startActivity(new Intent(this, ColorAccuracyActivity.class)));
+
+        addSectionTitle("Uniformity / Mura / 屏幕均匀性");
+        addInfo("Fullscreen low-gray fields for spotting backlight bleed and blotching by eye.\n"
+                + "全屏低灰阶画面，肉眼观察漏光与色斑。");
+        addButton("Start Mura Test / 开始均匀性测试", () ->
+                startActivity(new Intent(this, MuraActivity.class)));
+
+        addSectionTitle("Touch-Display Alignment / 触控显示对齐度");
+        addInfo("Overlays a reference grid with the live touch point to reveal any offset.\n"
+                + "叠加参考网格与实时触控点，检测是否存在偏移。");
+        addButton("Start Alignment Test / 开始对齐度测试", () ->
+                startActivity(new Intent(this, TouchAlignmentActivity.class)));
     }
 }

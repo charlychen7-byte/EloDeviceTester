@@ -80,6 +80,12 @@
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.display.GrayscaleActivity"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
+        <activity android:name=".modules.display.ColorAccuracyActivity"
+            android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
+        <activity android:name=".modules.display.MuraActivity"
+            android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
+        <activity android:name=".modules.display.TouchAlignmentActivity"
+            android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.touch.TouchActivity" />
         <activity android:name=".modules.touch.MultiTouchActivity"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
