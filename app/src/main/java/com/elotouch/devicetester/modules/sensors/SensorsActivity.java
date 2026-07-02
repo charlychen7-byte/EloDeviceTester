@@ -27,33 +27,34 @@ public class SensorsActivity extends BaseTestActivity implements SensorEventList
 
     @Override
     protected String title() {
-        return "Sensors / 传感器测试";
+        return "Sensors 传感器测试";
     }
 
     @Override
     protected void buildUi() {
         sm = (SensorManager) getSystemService(Context.SENSOR_SERVICE);
 
-        accelText = addSensorSection("加速度计 (Accelerometer)", Sensor.TYPE_ACCELEROMETER);
-        gyroText = addSensorSection("陀螺仪 (Gyroscope)", Sensor.TYPE_GYROSCOPE);
-        lightText = addSensorSection("光线传感器 (Light)", Sensor.TYPE_LIGHT);
-        proxText = addSensorSection("距离传感器 (Proximity)", Sensor.TYPE_PROXIMITY);
-        magText = addSensorSection("磁力计 (Magnetometer)", Sensor.TYPE_MAGNETIC_FIELD);
+        accelText = addSensorSection("Accelerometer 加速度计", Sensor.TYPE_ACCELEROMETER);
+        gyroText = addSensorSection("Gyroscope 陀螺仪", Sensor.TYPE_GYROSCOPE);
+        lightText = addSensorSection("Light 光线传感器", Sensor.TYPE_LIGHT);
+        proxText = addSensorSection("Proximity 距离传感器", Sensor.TYPE_PROXIMITY);
+        magText = addSensorSection("Magnetometer 磁力计", Sensor.TYPE_MAGNETIC_FIELD);
 
         if (has(Sensor.TYPE_ACCELEROMETER) && has(Sensor.TYPE_MAGNETIC_FIELD)) {
-            addSectionTitle("电子罗盘 (Compass)");
-            addInfo("远离磁性物体并做 8 字校准后读数更准。");
-            headingText = addInfo("朝向：—");
+            addSectionTitle("Compass 电子罗盘");
+            addInfo("Move away from magnets and do a figure-8 calibration for accuracy.\n"
+                    + "远离磁性物体并做 8 字校准后读数更准。");
+            headingText = addInfo("Heading 朝向：—");
         }
     }
 
     private TextView addSensorSection(String title, int type) {
         addSectionTitle(title);
         if (!has(type)) {
-            addInfo("硬件不支持。");
+            addInfo("Not supported. 硬件不支持。");
             return null;
         }
-        return addInfo("等待数据…");
+        return addInfo("Waiting for data… 等待数据…");
     }
 
     private boolean has(int type) {
@@ -95,11 +96,11 @@ public class SensorsActivity extends BaseTestActivity implements SensorEventList
                 break;
             case Sensor.TYPE_LIGHT:
                 if (lightText != null)
-                    lightText.setText(String.format(Locale.US, "照度：%.1f lux", v[0]));
+                    lightText.setText(String.format(Locale.US, "Illuminance 照度：%.1f lux", v[0]));
                 break;
             case Sensor.TYPE_PROXIMITY:
                 if (proxText != null)
-                    proxText.setText(String.format(Locale.US, "距离：%.1f cm", v[0]));
+                    proxText.setText(String.format(Locale.US, "Distance 距离：%.1f cm", v[0]));
                 break;
             case Sensor.TYPE_MAGNETIC_FIELD:
                 if (magText != null) magText.setText(xyz(v));
@@ -118,12 +119,12 @@ public class SensorsActivity extends BaseTestActivity implements SensorEventList
             SensorManager.getOrientation(r, orientation);
             float deg = (float) Math.toDegrees(orientation[0]);
             if (deg < 0) deg += 360;
-            headingText.setText(String.format(Locale.US, "朝向：%.0f° (%s)", deg, compassDir(deg)));
+            headingText.setText(String.format(Locale.US, "Heading 朝向：%.0f° (%s)", deg, compassDir(deg)));
         }
     }
 
     private static String compassDir(float deg) {
-        String[] dirs = {"北", "东北", "东", "东南", "南", "西南", "西", "西北"};
+        String[] dirs = {"N 北", "NE 东北", "E 东", "SE 东南", "S 南", "SW 西南", "W 西", "NW 西北"};
         return dirs[(int) ((deg + 22.5) / 45) % 8];
     }
 

@@ -89,7 +89,7 @@ public class ModuleAdapter extends RecyclerView.Adapter<ModuleAdapter.Holder> {
             h.itemView.setOnClickListener(v -> listener.onClick(module));
         } else {
             h.status.setVisibility(View.VISIBLE);
-            h.status.setText("硬件不支持");
+            h.status.setText("Not Supported\n硬件不支持");
             h.itemView.setAlpha(0.4f);
             h.itemView.setEnabled(false);
             h.itemView.setOnClickListener(null);

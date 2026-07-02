@@ -17,31 +17,33 @@ public class VibratorActivity extends BaseTestActivity {
 
     @Override
     protected String title() {
-        return "Vibrator / 振动马达测试";
+        return "Vibrator 振动马达测试";
     }
 
     @Override
     protected void buildUi() {
         vibrator = getVibrator();
 
-        addSectionTitle("持续振动测试");
-        addInfo("马达连续振动约 2.5 秒，凭体感判断马达是否正常。");
-        addButton("持续振动 2.5 秒", () -> {
+        addSectionTitle("Continuous Vibration / 持续振动");
+        addInfo("Motor vibrates continuously for ~2.5s; judge by feel.\n"
+                + "马达连续振动约 2.5 秒，凭体感判断马达是否正常。");
+        addButton("Vibrate 2.5s / 持续振动 2.5 秒", () -> {
             if (vibrator != null) {
                 vibrator.vibrate(VibrationEffect.createOneShot(2500, VibrationEffect.DEFAULT_AMPLITUDE));
             }
         });
 
-        addSectionTitle("间歇 / 节奏振动测试");
-        addInfo("按\"震-停-震-停\"波形短震，测试马达启停响应速度。");
-        addButton("节奏振动", () -> {
+        addSectionTitle("Rhythmic Vibration / 间歇节奏振动");
+        addInfo("Buzz-pause-buzz waveform to test start/stop response.\n"
+                + "按\"震-停-震-停\"波形短震，测试马达启停响应速度。");
+        addButton("Rhythmic Vibrate / 节奏振动", () -> {
             if (vibrator != null) {
                 long[] timings = {0, 200, 150, 200, 150, 400};
                 vibrator.vibrate(VibrationEffect.createWaveform(timings, -1));
             }
         });
 
-        addButton("停止振动", this::cancel);
+        addButton("Stop / 停止振动", this::cancel);
     }
 
     private Vibrator getVibrator() {

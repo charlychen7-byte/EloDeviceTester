@@ -15,25 +15,30 @@ public class DisplayActivity extends BaseTestActivity {
 
     @Override
     protected String title() {
-        return "Display / 显示测试";
+        return "Display 显示测试";
     }
 
     @Override
     protected void buildUi() {
-        addSectionTitle("坏点与纯色测试");
-        addInfo("全屏循环切换纯色，肉眼检测暗点、亮点、漏光、屏幕发黄等。点击屏幕切换颜色，返回键退出。");
-        addButton("开始纯色测试", () ->
+        addSectionTitle("Dead Pixel & Solid Color / 坏点与纯色");
+        addInfo("Fullscreen solid colors to spot dark/bright pixels and backlight bleed. "
+                + "Tap to switch color, Back to exit.\n"
+                + "全屏循环纯色，肉眼检测暗点、亮点、漏光、发黄等。点击切换颜色，返回键退出。");
+        addButton("Start Color Test / 开始纯色测试", () ->
                 startActivity(new Intent(this, ColorTestActivity.class)));
 
-        addSectionTitle("灰阶与对比度测试");
-        addInfo("显示多级灰阶矩阵，检测暗部细节与色彩过渡。");
-        addButton("开始灰阶测试", () ->
+        addSectionTitle("Grayscale & Contrast / 灰阶与对比度");
+        addInfo("Multi-level grayscale matrix for dark detail & color transition.\n"
+                + "显示多级灰阶矩阵，检测暗部细节与色彩过渡。");
+        addButton("Start Grayscale Test / 开始灰阶测试", () ->
                 startActivity(new Intent(this, GrayscaleActivity.class)));
 
-        addSectionTitle("刷新率");
+        addSectionTitle("Refresh Rate / 刷新率");
         Display d = getWindowManager().getDefaultDisplay();
         float hz = d.getRefreshRate();
         addInfo(String.format(Locale.US,
-                "当前屏幕标称刷新率：%.1f Hz\n（读取系统标称值，系统可能动态降频，标称值不等于实测帧率）", hz));
+                "Nominal refresh rate 标称刷新率：%.1f Hz\n"
+                        + "(Reads the system nominal value; the system may downclock, so it is "
+                        + "not the measured frame rate. 读取系统标称值，系统可能动态降频，非实测帧率)", hz));
     }
 }

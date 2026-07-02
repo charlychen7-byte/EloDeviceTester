@@ -27,7 +27,7 @@ public class CameraActivity extends BaseTestActivity {
 
     @Override
     protected String title() {
-        return "Camera / 相机测试";
+        return "Camera 相机测试";
     }
 
     @Override
@@ -39,12 +39,12 @@ public class CameraActivity extends BaseTestActivity {
         previewView.setLayoutParams(lp);
         content.addView(previewView);
 
-        addButton("切换前 / 后摄像头", this::switchCamera);
-        addButton("闪光灯 开 / 关", this::toggleTorch);
+        addButton("Switch Front/Back / 切换前后摄像头", this::switchCamera);
+        addButton("Flashlight On/Off / 闪光灯开关", this::toggleTorch);
 
         requirePermission(Manifest.permission.CAMERA,
                 this::startCamera,
-                () -> toast("权限受限：未授予相机权限。"));
+                () -> toast("Permission denied. 权限受限：未授予相机权限。"));
     }
 
     private void startCamera() {
@@ -55,7 +55,7 @@ public class CameraActivity extends BaseTestActivity {
                 cameraProvider = future.get();
                 bind();
             } catch (Exception e) {
-                toast("相机初始化失败：" + e.getMessage());
+                toast("Camera init failed 相机初始化失败：" + e.getMessage());
             }
         }, ContextCompat.getMainExecutor(this));
     }
@@ -73,7 +73,7 @@ public class CameraActivity extends BaseTestActivity {
             camera = cameraProvider.bindToLifecycle(this, selector, preview);
             torchOn = false;
         } catch (Exception e) {
-            toast("该朝向摄像头不可用：" + e.getMessage());
+            toast("Camera for this lens unavailable 该朝向摄像头不可用：" + e.getMessage());
         }
     }
 
@@ -86,7 +86,7 @@ public class CameraActivity extends BaseTestActivity {
     private void toggleTorch() {
         if (camera == null) return;
         if (!camera.getCameraInfo().hasFlashUnit()) {
-            toast("当前摄像头无闪光灯");
+            toast("No flash on this camera 当前摄像头无闪光灯");
             return;
         }
         torchOn = !torchOn;

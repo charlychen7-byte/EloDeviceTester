@@ -32,7 +32,7 @@ public class ColorTestActivity extends ImmersiveActivity {
         root.setBackgroundColor(COLORS[0]);
 
         TextView hint = new TextView(this);
-        hint.setText("点击切换颜色 · 返回键退出");
+        hint.setText("Tap to switch · Back to exit\n点击切换颜色 · 返回键退出");
         hint.setTextColor(Color.DKGRAY);
         hint.setTextSize(14);
         FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(

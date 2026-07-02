@@ -39,14 +39,14 @@ public class WifiBtActivity extends BaseTestActivity {
         @Override
         public void onReceive(Context c, Intent i) {
             try {
-                StringBuilder sb = new StringBuilder("扫描到热点：\n");
+                StringBuilder sb = new StringBuilder("APs found 扫描到热点：\n");
                 for (ScanResult r : wifiManager.getScanResults()) {
-                    String ssid = (r.SSID == null || r.SSID.isEmpty()) ? "(隐藏)" : r.SSID;
+                    String ssid = (r.SSID == null || r.SSID.isEmpty()) ? "(hidden 隐藏)" : r.SSID;
                     sb.append(String.format(Locale.US, "  %s   RSSI=%d dBm\n", ssid, r.level));
                 }
                 wifiText.setText(sb.toString());
             } catch (SecurityException e) {
-                wifiText.setText("权限受限：无法读取扫描结果。");
+                wifiText.setText("Permission denied. 权限受限：无法读取扫描结果。");
             }
         }
     };
@@ -65,10 +65,10 @@ public class WifiBtActivity extends BaseTestActivity {
             } catch (SecurityException e) {
                 name = null;
             }
-            if (name == null) name = "(未知)";
+            if (name == null) name = "(unknown 未知)";
             btSeen.add(String.format(Locale.US, "  %s [%s]  RSSI=%d dBm",
                     name, device.getAddress(), rssi));
-            StringBuilder sb = new StringBuilder("扫描到蓝牙设备：\n");
+            StringBuilder sb = new StringBuilder("BT devices found 扫描到蓝牙设备：\n");
             for (String s : btSeen) sb.append(s).append('\n');
             btText.setText(sb.toString());
         }
@@ -87,22 +87,22 @@ public class WifiBtActivity extends BaseTestActivity {
 
         addSectionTitle("Wi-Fi");
         wifiText = addInfo(wifiStatus());
-        addButton("扫描周边热点", this::scanWifi);
-        addButton("Ping 延迟测试 (8.8.8.8)", this::pingTest);
+        addButton("Scan APs / 扫描周边热点", this::scanWifi);
+        addButton("Ping Test (8.8.8.8) / Ping 延迟测试", this::pingTest);
 
         addSectionTitle("Bluetooth");
         btText = addInfo(btStatus());
-        addButton("扫描蓝牙设备", this::scanBt);
+        addButton("Scan BT Devices / 扫描蓝牙设备", this::scanBt);
     }
 
     private String wifiStatus() {
-        if (wifiManager == null) return "本设备不支持 Wi-Fi。";
-        return "Wi-Fi 开关：" + (wifiManager.isWifiEnabled() ? "已开启" : "已关闭");
+        if (wifiManager == null) return "No Wi-Fi on this device. 本设备不支持 Wi-Fi。";
+        return "Wi-Fi 开关：" + (wifiManager.isWifiEnabled() ? "On 已开启" : "Off 已关闭");
     }
 
     private String btStatus() {
-        if (btAdapter == null) return "本设备不支持蓝牙。";
-        return "蓝牙开关：" + (btAdapter.isEnabled() ? "已开启" : "已关闭");
+        if (btAdapter == null) return "No Bluetooth on this device. 本设备不支持蓝牙。";
+        return "Bluetooth 开关：" + (btAdapter.isEnabled() ? "On 已开启" : "Off 已关闭");
     }
 
     // ----------------------------------------------------------------- Wi-Fi
@@ -112,7 +112,7 @@ public class WifiBtActivity extends BaseTestActivity {
         // Scan results require location permission + location services on API 26+.
         requirePermission(Manifest.permission.ACCESS_FINE_LOCATION,
                 this::doWifiScan,
-                () -> wifiText.setText("权限受限：扫描热点需要定位权限。"));
+                () -> wifiText.setText("Location permission required. 权限受限：扫描热点需要定位权限。"));
     }
 
     @SuppressLint("MissingPermission")
@@ -122,13 +122,13 @@ public class WifiBtActivity extends BaseTestActivity {
                     new IntentFilter(WifiManager.SCAN_RESULTS_AVAILABLE_ACTION));
             wifiReceiverRegistered = true;
         }
-        wifiText.setText("扫描中…");
+        wifiText.setText("Scanning… 扫描中…");
         boolean started = wifiManager.startScan(); // throttled on newer Android
-        if (!started) wifiText.setText("扫描请求被系统限流，请稍后重试。");
+        if (!started) wifiText.setText("Scan throttled by system, retry later. 扫描请求被系统限流，请稍后重试。");
     }
 
     private void pingTest() {
-        wifiText.setText("Ping 中…");
+        wifiText.setText("Pinging… Ping 中…");
         runAsync(() -> {
             try {
                 long t0 = System.nanoTime();
@@ -136,11 +136,11 @@ public class WifiBtActivity extends BaseTestActivity {
                 boolean reachable = addr.isReachable(3000);
                 long ms = (System.nanoTime() - t0) / 1_000_000;
                 String msg = reachable
-                        ? String.format(Locale.US, "Ping 8.8.8.8 成功：%d ms", ms)
-                        : "Ping 超时（3s 内不可达）。";
+                        ? String.format(Locale.US, "Ping 8.8.8.8 OK 成功：%d ms", ms)
+                        : "Ping timeout (3s) 超时（3s 内不可达）。";
                 ui(() -> wifiText.setText(msg));
             } catch (Exception e) {
-                ui(() -> wifiText.setText("Ping 失败：" + e.getMessage()));
+                ui(() -> wifiText.setText("Ping failed Ping 失败：" + e.getMessage()));
             }
         });
     }
@@ -150,14 +150,14 @@ public class WifiBtActivity extends BaseTestActivity {
     private void scanBt() {
         if (btAdapter == null) return;
         if (!btAdapter.isEnabled()) {
-            btText.setText("蓝牙未开启，请先在系统中开启蓝牙。");
+            btText.setText("Bluetooth is off; enable it first. 蓝牙未开启，请先在系统中开启蓝牙。");
             return;
         }
         String[] perms = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                 ? new String[]{Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT}
                 : new String[]{Manifest.permission.ACCESS_FINE_LOCATION};
         requirePermissions(perms, this::doBtScan,
-                () -> btText.setText("权限受限：扫描蓝牙需要相应权限。"));
+                () -> btText.setText("Permission required. 权限受限：扫描蓝牙需要相应权限。"));
     }
 
     @SuppressLint("MissingPermission")
@@ -167,12 +167,12 @@ public class WifiBtActivity extends BaseTestActivity {
             btReceiverRegistered = true;
         }
         btSeen.clear();
-        btText.setText("蓝牙扫描中…");
+        btText.setText("Scanning Bluetooth… 蓝牙扫描中…");
         try {
             if (btAdapter.isDiscovering()) btAdapter.cancelDiscovery();
             btAdapter.startDiscovery();
         } catch (SecurityException e) {
-            btText.setText("权限受限：" + e.getMessage());
+            btText.setText("Permission denied 权限受限：" + e.getMessage());
         }
     }
 

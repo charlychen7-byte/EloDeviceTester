@@ -87,7 +87,7 @@ public class MultiTouchActivity extends ImmersiveActivity {
                 canvas.drawLine(p[0], 0, p[0], getHeight(), cross);
                 canvas.drawLine(0, p[1], getWidth(), p[1], cross);
             }
-            canvas.drawText("当前触点：" + pointers.size() + "    最大：" + maxPoints,
+            canvas.drawText("Touches 当前触点：" + pointers.size() + "    Max 最大：" + maxPoints,
                     40, 100, text);
         }
     }

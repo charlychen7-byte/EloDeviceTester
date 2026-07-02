@@ -177,7 +177,7 @@ public abstract class BaseTestActivity extends AppCompatActivity {
             try {
                 bg.run();
             } catch (Throwable t) {
-                ui(() -> toast("测试出错：" + t.getMessage()));
+                ui(() -> toast("Test error 测试出错：" + t.getMessage()));
             }
         });
     }

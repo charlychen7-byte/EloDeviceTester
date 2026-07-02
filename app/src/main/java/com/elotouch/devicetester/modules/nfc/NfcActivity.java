@@ -32,13 +32,13 @@ public class NfcActivity extends BaseTestActivity {
     protected void buildUi() {
         nfcAdapter = NfcAdapter.getDefaultAdapter(this);
 
-        addSectionTitle("NFC 状态");
+        addSectionTitle("NFC Status / NFC 状态");
         statusText = addInfo("");
-        addButton("打开 NFC 系统设置", () ->
+        addButton("Open NFC Settings / 打开 NFC 系统设置", () ->
                 startActivity(new Intent(Settings.ACTION_NFC_SETTINGS)));
 
-        addSectionTitle("读卡检测");
-        readText = addInfo("请将 IC 卡靠近感应区…");
+        addSectionTitle("Card Read / 读卡检测");
+        readText = addInfo("Hold an IC card near the sensor… 请将 IC 卡靠近感应区…");
 
         int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                 ? PendingIntent.FLAG_MUTABLE : 0;
@@ -51,11 +51,11 @@ public class NfcActivity extends BaseTestActivity {
 
     private void refreshStatus() {
         if (nfcAdapter == null) {
-            statusText.setText("本设备不支持 NFC。");
+            statusText.setText("This device has no NFC. 本设备不支持 NFC。");
         } else if (!nfcAdapter.isEnabled()) {
-            statusText.setText("NFC 已关闭，请点击下方按钮开启。");
+            statusText.setText("NFC is off; tap the button below to enable. NFC 已关闭，请点击下方按钮开启。");
         } else {
-            statusText.setText("NFC 已开启，可进行读卡检测。");
+            statusText.setText("NFC is on; ready to read. NFC 已开启，可进行读卡检测。");
         }
     }
 
@@ -88,18 +88,18 @@ public class NfcActivity extends BaseTestActivity {
     private void handleTag(Intent intent) {
         Tag tag = intent.getParcelableExtra(NfcAdapter.EXTRA_TAG);
         if (tag == null) return;
-        StringBuilder sb = new StringBuilder("读卡成功！\n");
+        StringBuilder sb = new StringBuilder("Read OK! 读卡成功！\n");
         sb.append("UID：").append(toHex(tag.getId())).append('\n');
-        sb.append("支持技术：\n");
+        sb.append("Tech 支持技术：\n");
         for (String tech : tag.getTechList()) {
             sb.append("  · ").append(tech.substring(tech.lastIndexOf('.') + 1)).append('\n');
         }
         readText.setText(sb.toString());
-        toast("读卡成功，天线与芯片正常");
+        toast("Read OK 读卡成功，天线与芯片正常");
     }
 
     private static String toHex(byte[] bytes) {
-        if (bytes == null) return "(空)";
+        if (bytes == null) return "(empty 空)";
         StringBuilder sb = new StringBuilder();
         for (byte b : bytes) sb.append(String.format(Locale.US, "%02X ", b));
         return sb.toString().trim();

@@ -95,7 +95,8 @@ public class TouchGridActivity extends ImmersiveActivity {
                     canvas.drawRect(l, t, l + cw, t + ch, line);
                 }
             }
-            canvas.drawText("已覆盖 " + done + " / " + (COLS * ROWS) + " 格 · 双击清空 · 返回键退出",
+            canvas.drawText("Covered 已覆盖 " + done + " / " + (COLS * ROWS)
+                            + " · Double-tap clear 双击清空 · Back exit 返回键退出",
                     20, h - 30, text);
         }
     }

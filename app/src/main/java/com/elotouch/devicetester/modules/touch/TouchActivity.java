@@ -11,19 +11,21 @@ public class TouchActivity extends BaseTestActivity {
 
     @Override
     protected String title() {
-        return "Touch / 触摸测试";
+        return "Touch 触摸测试";
     }
 
     @Override
     protected void buildUi() {
-        addSectionTitle("多点触控测试");
-        addInfo("多指同时按压并划线，实时显示触控轨迹与当前触控点数。返回键退出。");
-        addButton("开始多点触控测试", () ->
+        addSectionTitle("Multi-touch / 多点触控");
+        addInfo("Press and drag with multiple fingers; shows live trails and touch count. "
+                + "Back to exit.\n多指同时按压并划线，实时显示触控轨迹与触点数。返回键退出。");
+        addButton("Start Multi-touch Test / 开始多点触控测试", () ->
                 startActivity(new Intent(this, MultiTouchActivity.class)));
 
-        addSectionTitle("触控精准度 / 死角测试");
-        addInfo("全屏铺满网格，手指划过的方格会变色，用于检测边缘与各区域是否存在触控死角。返回键退出。");
-        addButton("开始网格死角测试", () ->
+        addSectionTitle("Accuracy / Dead-zone Grid / 触控精准度与死角");
+        addInfo("Fullscreen grid; cells turn green where a finger passes, revealing edge dead "
+                + "zones. Back to exit.\n全屏铺满网格，手指划过的方格变色，检测边缘与各区域触控死角。返回键退出。");
+        addButton("Start Grid Test / 开始网格死角测试", () ->
                 startActivity(new Intent(this, TouchGridActivity.class)));
     }
 }

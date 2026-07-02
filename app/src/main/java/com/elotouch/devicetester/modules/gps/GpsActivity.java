@@ -39,11 +39,12 @@ public class GpsActivity extends BaseTestActivity {
                 sb.append(String.format(Locale.US, "%s  CN0=%.0f dBHz%s\n",
                         constellation(status.getConstellationType(i)),
                         status.getCn0DbHz(i),
-                        status.usedInFix(i) ? "  (定位中)" : ""));
+                        status.usedInFix(i) ? "  (in fix 定位中)" : ""));
             }
             final int total = count, usedF = used;
             final String detail = sb.toString();
-            ui(() -> satText.setText("可见卫星：" + total + "    参与定位：" + usedF + "\n" + detail));
+            ui(() -> satText.setText("Visible 可见卫星：" + total
+                    + "    In fix 参与定位：" + usedF + "\n" + detail));
         }
     };
 
@@ -51,7 +52,8 @@ public class GpsActivity extends BaseTestActivity {
         @Override
         public void onLocationChanged(@NonNull Location loc) {
             ui(() -> fixText.setText(String.format(Locale.US,
-                    "已获取定位 (Fix)：\n纬度：%.6f\n经度：%.6f\n海拔：%.1f m\n精度：%.1f m",
+                    "Fix acquired 已获取定位：\nLatitude 纬度：%.6f\nLongitude 经度：%.6f\n"
+                            + "Altitude 海拔：%.1f m\nAccuracy 精度：%.1f m",
                     loc.getLatitude(), loc.getLongitude(), loc.getAltitude(), loc.getAccuracy())));
         }
 
@@ -64,34 +66,34 @@ public class GpsActivity extends BaseTestActivity {
 
     @Override
     protected String title() {
-        return "GPS / 定位测试";
+        return "GPS 定位测试";
     }
 
     @Override
     protected void buildUi() {
         lm = (LocationManager) getSystemService(Context.LOCATION_SERVICE);
 
-        addSectionTitle("卫星扫描");
-        satText = addInfo("尚未开始。");
+        addSectionTitle("Satellite Scan / 卫星扫描");
+        satText = addInfo("Not started. 尚未开始。");
 
-        addSectionTitle("经纬度定位");
-        fixText = addInfo("尚未获取定位锁。");
+        addSectionTitle("Position Fix / 经纬度定位");
+        fixText = addInfo("No fix yet. 尚未获取定位锁。");
 
-        addButton("开始搜星 / 定位", this::start);
-        addButton("停止", this::stop);
-        addButton("打开定位系统设置", () ->
+        addButton("Start Scan / Locate / 开始搜星定位", this::start);
+        addButton("Stop / 停止", this::stop);
+        addButton("Open Location Settings / 打开定位系统设置", () ->
                 startActivity(new Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)));
     }
 
     private void start() {
         if (lm != null && !lm.isProviderEnabled(LocationManager.GPS_PROVIDER)) {
-            toast("系统定位未开启，请先在设置中开启");
+            toast("Location is off; enable it in Settings. 系统定位未开启，请先在设置中开启");
         }
         requirePermission(Manifest.permission.ACCESS_FINE_LOCATION,
                 this::beginUpdates,
                 () -> {
-                    satText.setText("权限受限：未授予定位权限。");
-                    fixText.setText("权限受限。");
+                    satText.setText("Permission denied. 权限受限：未授予定位权限。");
+                    fixText.setText("Permission denied. 权限受限。");
                 });
     }
 
@@ -102,10 +104,10 @@ public class GpsActivity extends BaseTestActivity {
             lm.registerGnssStatusCallback(gnssCallback, main);
             lm.requestLocationUpdates(LocationManager.GPS_PROVIDER, 1000, 0, locationListener, main.getLooper());
             listening = true;
-            satText.setText("搜星中…");
-            fixText.setText("等待定位锁…");
+            satText.setText("Searching… 搜星中…");
+            fixText.setText("Waiting for fix… 等待定位锁…");
         } catch (SecurityException e) {
-            satText.setText("权限受限：" + e.getMessage());
+            satText.setText("Permission denied 权限受限：" + e.getMessage());
         }
     }
 
@@ -125,11 +127,11 @@ public class GpsActivity extends BaseTestActivity {
         switch (type) {
             case GnssStatus.CONSTELLATION_GPS: return "GPS";
             case GnssStatus.CONSTELLATION_GLONASS: return "GLONASS";
-            case GnssStatus.CONSTELLATION_BEIDOU: return "北斗";
+            case GnssStatus.CONSTELLATION_BEIDOU: return "BeiDou 北斗";
             case GnssStatus.CONSTELLATION_GALILEO: return "Galileo";
             case GnssStatus.CONSTELLATION_QZSS: return "QZSS";
             case GnssStatus.CONSTELLATION_SBAS: return "SBAS";
-            default: return "其他";
+            default: return "Other 其他";
         }
     }
 }

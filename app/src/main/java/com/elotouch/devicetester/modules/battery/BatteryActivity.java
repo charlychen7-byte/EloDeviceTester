@@ -40,18 +40,18 @@ public class BatteryActivity extends BaseTestActivity {
 
     @Override
     protected String title() {
-        return "Battery & Power / 电池电源测试";
+        return "Battery & Power 电池电源测试";
     }
 
     @Override
     protected void buildUi() {
         batteryManager = (BatteryManager) getSystemService(Context.BATTERY_SERVICE);
 
-        addSectionTitle("电池状态");
-        statusText = addInfo("读取中…");
+        addSectionTitle("Battery Status / 电池状态");
+        statusText = addInfo("Reading… 读取中…");
 
-        addSectionTitle("实时充电检测");
-        liveText = addInfo("读取中…");
+        addSectionTitle("Live Charging / 实时充电检测");
+        liveText = addInfo("Reading… 读取中…");
 
         // Sticky broadcast gives current state immediately.
         Intent sticky = registerReceiver(batteryReceiver,
@@ -71,10 +71,11 @@ public class BatteryActivity extends BaseTestActivity {
         int plugged = i.getIntExtra(BatteryManager.EXTRA_PLUGGED, 0);
 
         statusText.setText(String.format(Locale.US,
-                "电量：%d%%\n温度：%.1f ℃\n电压：%.3f V\n健康度：%s\n状态：%s",
+                "Level 电量：%d%%\nTemperature 温度：%.1f ℃\nVoltage 电压：%.3f V\n"
+                        + "Health 健康度：%s\nStatus 状态：%s",
                 pct, tempTenths / 10f, voltageMv / 1000f, healthStr(health), statusStr(status)));
 
-        liveText.setText("充电类型：" + pluggedStr(plugged) + "\n实时电流：读取中…");
+        liveText.setText("Charge type 充电类型：" + pluggedStr(plugged) + "\nCurrent 实时电流：reading… 读取中…");
     }
 
     private void updateLiveCurrent() {
@@ -83,13 +84,13 @@ public class BatteryActivity extends BaseTestActivity {
         int microAmps = batteryManager.getIntProperty(BatteryManager.BATTERY_PROPERTY_CURRENT_NOW);
         String currentLine;
         if (microAmps == Integer.MIN_VALUE || microAmps == 0) {
-            currentLine = "实时电流：该机型不支持读取";
+            currentLine = "Current 实时电流：not readable on this device 该机型不支持读取";
         } else {
-            currentLine = String.format(Locale.US, "实时电流：%.0f mA (%s)",
-                    microAmps / 1000f, microAmps > 0 ? "充电" : "放电");
+            currentLine = String.format(Locale.US, "Current 实时电流：%.0f mA (%s)",
+                    microAmps / 1000f, microAmps > 0 ? "charging 充电" : "discharging 放电");
         }
         String existing = liveText.getText().toString();
-        int idx = existing.indexOf("\n实时电流");
+        int idx = existing.indexOf("\nCurrent");
         String head = idx >= 0 ? existing.substring(0, idx) : existing;
         liveText.setText(head + "\n" + currentLine);
     }
@@ -121,22 +122,22 @@ public class BatteryActivity extends BaseTestActivity {
 
     private static String healthStr(int h) {
         switch (h) {
-            case BatteryManager.BATTERY_HEALTH_GOOD: return "良好";
-            case BatteryManager.BATTERY_HEALTH_OVERHEAT: return "过热";
-            case BatteryManager.BATTERY_HEALTH_DEAD: return "损坏";
-            case BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE: return "过压";
-            case BatteryManager.BATTERY_HEALTH_COLD: return "过冷";
-            default: return "未知";
+            case BatteryManager.BATTERY_HEALTH_GOOD: return "Good 良好";
+            case BatteryManager.BATTERY_HEALTH_OVERHEAT: return "Overheat 过热";
+            case BatteryManager.BATTERY_HEALTH_DEAD: return "Dead 损坏";
+            case BatteryManager.BATTERY_HEALTH_OVER_VOLTAGE: return "Over-voltage 过压";
+            case BatteryManager.BATTERY_HEALTH_COLD: return "Cold 过冷";
+            default: return "Unknown 未知";
         }
     }
 
     private static String statusStr(int s) {
         switch (s) {
-            case BatteryManager.BATTERY_STATUS_CHARGING: return "充电中";
-            case BatteryManager.BATTERY_STATUS_DISCHARGING: return "放电中";
-            case BatteryManager.BATTERY_STATUS_FULL: return "已充满";
-            case BatteryManager.BATTERY_STATUS_NOT_CHARGING: return "未充电";
-            default: return "未知";
+            case BatteryManager.BATTERY_STATUS_CHARGING: return "Charging 充电中";
+            case BatteryManager.BATTERY_STATUS_DISCHARGING: return "Discharging 放电中";
+            case BatteryManager.BATTERY_STATUS_FULL: return "Full 已充满";
+            case BatteryManager.BATTERY_STATUS_NOT_CHARGING: return "Not charging 未充电";
+            default: return "Unknown 未知";
         }
     }
 
@@ -144,9 +145,9 @@ public class BatteryActivity extends BaseTestActivity {
         switch (p) {
             case BatteryManager.BATTERY_PLUGGED_AC: return "AC 充电器";
             case BatteryManager.BATTERY_PLUGGED_USB: return "USB";
-            case BatteryManager.BATTERY_PLUGGED_WIRELESS: return "无线充电";
-            case 0: return "未连接电源";
-            default: return "其他";
+            case BatteryManager.BATTERY_PLUGGED_WIRELESS: return "Wireless 无线充电";
+            case 0: return "Unplugged 未连接电源";
+            default: return "Other 其他";
         }
     }
 }

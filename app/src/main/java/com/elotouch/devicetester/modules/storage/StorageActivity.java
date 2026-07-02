@@ -25,19 +25,20 @@ public class StorageActivity extends BaseTestActivity {
 
     @Override
     protected String title() {
-        return "Storage / 存储测试";
+        return "Storage 存储测试";
     }
 
     @Override
     protected void buildUi() {
-        addSectionTitle("存储空间");
+        addSectionTitle("Storage Space / 存储空间");
         infoText = addInfo("");
         refreshInfo();
-        addButton("刷新存储信息", this::refreshInfo);
+        addButton("Refresh Info / 刷新存储信息", this::refreshInfo);
 
-        addSectionTitle("读写速度测试（沙盒内 " + FILE_MB + "MB，测试后自动销毁）");
-        speedText = addInfo("点击开始测试。");
-        addButton("开始读写测试", this::runSpeed);
+        addSectionTitle("Read/Write Speed (" + FILE_MB + "MB, auto-deleted) / 读写速度（"
+                + FILE_MB + "MB，测试后自动销毁）");
+        speedText = addInfo("Tap to start. 点击开始测试。");
+        addButton("Start R/W Test / 开始读写测试", this::runSpeed);
     }
 
     private void refreshInfo() {
@@ -47,12 +48,12 @@ public class StorageActivity extends BaseTestActivity {
         long avail = stat.getAvailableBlocksLong() * block;
         long used = total - avail;
         infoText.setText(String.format(Locale.US,
-                "内部存储总容量：%s\n已用空间：%s\n可用空间：%s",
+                "Total 总容量：%s\nUsed 已用空间：%s\nAvailable 可用空间：%s",
                 fmt(total), fmt(used), fmt(avail)));
     }
 
     private void runSpeed() {
-        speedText.setText("测试中…");
+        speedText.setText("Testing… 测试中…");
         runAsync(() -> {
             File tmp = new File(getCacheDir(), "elo_storage_test.tmp");
             final int n = FILE_MB * 1024 * 1024;
@@ -85,9 +86,10 @@ public class StorageActivity extends BaseTestActivity {
                 double writeSpeed = mb / (writeNs / 1e9);
                 double readSpeed = mb / (readNs / 1e9);
                 ui(() -> speedText.setText(String.format(Locale.US,
-                        "顺序写入：%.1f MB/s\n顺序读取：%.1f MB/s", writeSpeed, readSpeed)));
+                        "Sequential write 顺序写入：%.1f MB/s\nSequential read 顺序读取：%.1f MB/s",
+                        writeSpeed, readSpeed)));
             } catch (Exception e) {
-                ui(() -> speedText.setText("测试失败：" + e.getMessage()));
+                ui(() -> speedText.setText("Test failed 测试失败：" + e.getMessage()));
             } finally {
                 // Non-destructive: always remove the temp file.
                 if (tmp.exists()) //noinspection ResultOfMethodCallIgnored

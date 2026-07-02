@@ -25,27 +25,28 @@ public class DdrActivity extends BaseTestActivity {
 
     @Override
     protected String title() {
-        return "DDR / 内存测试";
+        return "DDR / Memory 内存测试";
     }
 
     @Override
     protected void buildUi() {
-        addSectionTitle("容量与信息");
+        addSectionTitle("Capacity & Info / 容量与信息");
         infoText = addInfo("");
         refreshInfo();
-        addButton("刷新内存信息", this::refreshInfo);
+        addButton("Refresh Info / 刷新内存信息", this::refreshInfo);
 
-        addSectionTitle("读写带宽测试（相对参考值）");
-        bandwidthText = addInfo("点击开始测试。");
-        addButton("开始带宽测试", this::runBandwidth);
+        addSectionTitle("Read/Write Bandwidth (relative) / 读写带宽（相对参考值）");
+        bandwidthText = addInfo("Tap to start. 点击开始测试。");
+        addButton("Start Bandwidth Test / 开始带宽测试", this::runBandwidth);
 
-        addSectionTitle("压力填充测试（安全阈值保护）");
-        stressText = addInfo("将分配至多约 50% 可用内存（不超过堆上限），检测极限负载稳定性。");
-        addButton("开始压力测试", this::runStress);
-        addButton("停止 / 释放内存", () -> {
+        addSectionTitle("Stress Fill (safe threshold) / 压力填充（安全阈值保护）");
+        stressText = addInfo("Allocates up to ~50% of free RAM (capped by heap) to test "
+                + "stability under load.\n将分配至多约 50% 可用内存（不超过堆上限），检测极限负载稳定性。");
+        addButton("Start Stress Test / 开始压力测试", this::runStress);
+        addButton("Stop / Free Memory / 停止并释放内存", () -> {
             stopTests();
             releaseBlocks();
-            ui(() -> stressText.setText("已停止并释放内存。"));
+            ui(() -> stressText.setText("Stopped and memory freed. 已停止并释放内存。"));
         });
     }
 
@@ -55,12 +56,13 @@ public class DdrActivity extends BaseTestActivity {
         am.getMemoryInfo(mi);
         long maxHeap = Runtime.getRuntime().maxMemory();
         infoText.setText(String.format(Locale.US,
-                "总运行内存 (Total RAM)：%s\n可用内存 (Available RAM)：%s\n低内存阈值：%s\n单进程堆上限：%s",
+                "Total RAM 总运行内存：%s\nAvailable RAM 可用内存：%s\n"
+                        + "Low-memory threshold 低内存阈值：%s\nPer-process heap 单进程堆上限：%s",
                 fmt(mi.totalMem), fmt(mi.availMem), fmt(mi.threshold), fmt(maxHeap)));
     }
 
     private void runBandwidth() {
-        bandwidthText.setText("测试中…");
+        bandwidthText.setText("Testing… 测试中…");
         runAsync(() -> {
             final int sizeMb = 64;
             final int n = sizeMb * 1024 * 1024;
@@ -87,13 +89,14 @@ public class DdrActivity extends BaseTestActivity {
             double writeSpeed = mb / (writeNs / 1e9);
             double copySpeed = mb / (copyNs / 1e9);
             ui(() -> bandwidthText.setText(String.format(Locale.US,
-                    "顺序写入：%.0f MB/s\n内存拷贝：%.0f MB/s\n（纯 Java 综合相对值，非物理带宽）",
+                    "Sequential write 顺序写入：%.0f MB/s\nMemory copy 内存拷贝：%.0f MB/s\n"
+                            + "(Relative Java figure, not physical bandwidth. 纯 Java 综合相对值，非物理带宽)",
                     writeSpeed, copySpeed)));
         });
     }
 
     private void runStress() {
-        stressText.setText("压力填充中…");
+        stressText.setText("Stress filling… 压力填充中…");
         runAsync(() -> {
             ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
             ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
@@ -116,15 +119,17 @@ public class DdrActivity extends BaseTestActivity {
                     final long done = allocated;
                     final long tgt = target;
                     ui(() -> stressText.setText(String.format(Locale.US,
-                            "已稳定分配：%s / 目标 %s", fmt(done), fmt(tgt))));
+                            "Allocated 已稳定分配：%s / target 目标 %s", fmt(done), fmt(tgt))));
                     Thread.sleep(40);
                 }
                 final long done = allocated;
                 ui(() -> stressText.setText(String.format(Locale.US,
-                        "压力测试完成，稳定分配 %s 未崩溃。点击\"停止/释放\"回收。", fmt(done))));
+                        "Done: stably allocated %s without crash. Tap Stop to release.\n"
+                                + "压力测试完成，稳定分配 %s 未崩溃。点击\"停止并释放\"回收。", fmt(done), fmt(done))));
             } catch (OutOfMemoryError oom) {
                 releaseBlocks();
-                ui(() -> stressText.setText("接近内存上限，已自动释放以避免 OOM。"));
+                ui(() -> stressText.setText("Near memory limit; auto-released to avoid OOM. "
+                        + "接近内存上限，已自动释放以避免 OOM。"));
             } catch (InterruptedException ignored) {
             }
         });
