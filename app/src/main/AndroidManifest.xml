@@ -33,6 +33,9 @@
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"
         tools:targetApi="s" />
 
+    <!-- Cellular / Telephony -->
+    <uses-permission android:name="android.permission.READ_PHONE_STATE" />
+
     <!-- Hardware features: all optional so the app installs on any device.
          Actual presence is probed at runtime (HardwareDetector). -->
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
@@ -50,6 +53,7 @@
     <uses-feature android:name="android.hardware.sensor.light" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.proximity" android:required="false" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
+    <uses-feature android:name="android.hardware.telephony" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -90,5 +94,6 @@
         <activity android:name=".modules.msr.MsrActivity" />
         <activity android:name=".modules.serial.SerialActivity" />
         <activity android:name=".modules.displayext.DisplayExtActivity" />
+        <activity android:name=".modules.cellular.CellularActivity" />
     </application>
 </manifest>

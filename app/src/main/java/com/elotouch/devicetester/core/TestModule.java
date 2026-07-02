@@ -6,6 +6,7 @@ import com.elotouch.devicetester.modules.audio.AudioActivity;
 import com.elotouch.devicetester.modules.barcode.BarcodeActivity;
 import com.elotouch.devicetester.modules.battery.BatteryActivity;
 import com.elotouch.devicetester.modules.camera.CameraActivity;
+import com.elotouch.devicetester.modules.cellular.CellularActivity;
 import com.elotouch.devicetester.modules.ddr.DdrActivity;
 import com.elotouch.devicetester.modules.display.DisplayActivity;
 import com.elotouch.devicetester.modules.displayext.DisplayExtActivity;
@@ -41,7 +42,8 @@ public enum TestModule {
     BARCODE("Barcode/QR / 条码扫描", "🔍", BarcodeActivity.class, HardwareDetector.Feature.ALWAYS),
     MSR("MSR / 刷卡器", "💳", MsrActivity.class, HardwareDetector.Feature.ALWAYS),
     SERIAL_IO("Serial I/O / 序口外设", "🖨️", SerialActivity.class, HardwareDetector.Feature.ALWAYS),
-    DISPLAY_EXT("Display Ext / 双屏网络", "📺", DisplayExtActivity.class, HardwareDetector.Feature.ALWAYS);
+    DISPLAY_EXT("Display Ext / 双屏网络", "📺", DisplayExtActivity.class, HardwareDetector.Feature.ALWAYS),
+    CELLULAR("Cellular / 蜂窝网络", "📡", CellularActivity.class, HardwareDetector.Feature.CELLULAR);
 
     public final String title;
     public final String icon;
