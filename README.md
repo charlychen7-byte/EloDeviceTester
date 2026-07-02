@@ -11,14 +11,13 @@ Requires Android Studio (Giraffe+) or a JDK 17 + Android SDK (compileSdk 34).
 
 ```bash
 # from this directory
-gradle wrapper            # one-time: generate the gradle wrapper jar/scripts
 ./gradlew assembleDebug   # build debug APK -> app/build/outputs/apk/debug/
 ./gradlew installDebug    # build + install on a connected device/emulator
 ```
 
-Or simply open this folder in Android Studio and press Run. (The repo ships
-`gradle/wrapper/gradle-wrapper.properties` but not the wrapper jar — Studio or
-`gradle wrapper` generates it.)
+Or simply open this folder in Android Studio and press Run. The Gradle wrapper
+(`gradlew`/`gradlew.bat`/`gradle/wrapper/gradle-wrapper.jar`) is committed, so
+no local Gradle install or one-time `gradle wrapper` step is needed.
 
 - **Language:** Java 17 · **minSdk:** 26 (Android 8.0) · **targetSdk/compileSdk:** 34
 - **Package:** `com.elotouch.devicetester`
