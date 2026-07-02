@@ -3,6 +3,7 @@ package com.elotouch.devicetester.modules.camera;
 import android.Manifest;
 import android.graphics.ImageFormat;
 import android.hardware.camera2.CameraCharacteristics;
+import android.hardware.camera2.CameraManager;
 import android.hardware.camera2.params.StreamConfigurationMap;
 import android.util.Size;
 import android.widget.LinearLayout;
@@ -10,6 +11,7 @@ import android.widget.TextView;
 
 import androidx.camera.camera2.interop.Camera2CameraInfo;
 import androidx.camera.core.Camera;
+import androidx.camera.core.CameraInfo;
 import androidx.camera.core.CameraSelector;
 import androidx.camera.core.FocusMeteringAction;
 import androidx.camera.core.FocusMeteringResult;
@@ -23,6 +25,8 @@ import androidx.core.content.ContextCompat;
 import com.elotouch.devicetester.core.BaseTestActivity;
 import com.google.common.util.concurrent.ListenableFuture;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 /**
@@ -37,6 +41,9 @@ public class CameraActivity extends BaseTestActivity {
     private int lensFacing = CameraSelector.LENS_FACING_BACK;
     private boolean torchOn = false;
     private TextView cameraInfoText;
+    private TextView multiCameraText;
+    private final List<String> cameraIds = new ArrayList<>();
+    private int cameraIdIndex = -1;
 
     @Override
     protected String title() {
@@ -59,6 +66,11 @@ public class CameraActivity extends BaseTestActivity {
         cameraInfoText = addInfo("");
         addButton("Check Output Resolution / 核验输出分辨率", this::checkResolution);
         addButton("Measure Focus Speed / 测量对焦速度", this::measureFocusSpeed);
+
+        addSectionTitle("Multi-Camera / 多摄像头切换");
+        multiCameraText = addInfo("");
+        addButton("List Cameras / 列出所有摄像头", this::listCameras);
+        addButton("Next Camera / 切换到下一个摄像头", this::nextCamera);
 
         requirePermission(Manifest.permission.CAMERA,
                 this::startCamera,
@@ -165,5 +177,59 @@ public class CameraActivity extends BaseTestActivity {
             camera.getCameraControl().enableTorch(false);
         }
         if (cameraProvider != null) cameraProvider.unbindAll();
+    }
+
+    private void listCameras() {
+        try {
+            CameraManager cm = (CameraManager) getSystemService(CAMERA_SERVICE);
+            cameraIds.clear();
+            StringBuilder sb = new StringBuilder("Cameras found 检测到摄像头：\n");
+            for (String id : cm.getCameraIdList()) {
+                CameraCharacteristics ch = cm.getCameraCharacteristics(id);
+                Integer facing = ch.get(CameraCharacteristics.LENS_FACING);
+                cameraIds.add(id);
+                sb.append("  id=").append(id).append("  facing=").append(facingStr(facing)).append('\n');
+            }
+            multiCameraText.setText(sb.toString());
+        } catch (Exception e) {
+            multiCameraText.setText("Failed to list cameras 列出摄像头失败：" + e.getMessage());
+        }
+    }
+
+    private void nextCamera() {
+        if (cameraIds.isEmpty()) listCameras();
+        if (cameraIds.isEmpty() || cameraProvider == null) return;
+        cameraIdIndex = (cameraIdIndex + 1) % cameraIds.size();
+        String targetId = cameraIds.get(cameraIdIndex);
+        cameraProvider.unbindAll();
+        Preview preview = new Preview.Builder().build();
+        preview.setSurfaceProvider(previewView.getSurfaceProvider());
+        CameraSelector selector = new CameraSelector.Builder()
+                .addCameraFilter(infos -> {
+                    List<CameraInfo> filtered = new ArrayList<>();
+                    for (CameraInfo info : infos) {
+                        if (targetId.equals(Camera2CameraInfo.from(info).getCameraId())) {
+                            filtered.add(info);
+                        }
+                    }
+                    return filtered;
+                })
+                .build();
+        try {
+            camera = cameraProvider.bindToLifecycle(this, selector, preview);
+            multiCameraText.setText("Now showing camera id=" + targetId + " 当前显示摄像头 id=" + targetId);
+        } catch (Exception e) {
+            multiCameraText.setText("Bind failed 切换失败：" + e.getMessage());
+        }
+    }
+
+    private static String facingStr(Integer facing) {
+        if (facing == null) return "unknown 未知";
+        switch (facing) {
+            case CameraCharacteristics.LENS_FACING_FRONT: return "front 前置";
+            case CameraCharacteristics.LENS_FACING_BACK: return "back 后置";
+            case CameraCharacteristics.LENS_FACING_EXTERNAL: return "external 外接";
+            default: return "unknown 未知";
+        }
     }
 }
