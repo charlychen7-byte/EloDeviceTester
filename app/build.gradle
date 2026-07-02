@@ -39,4 +39,7 @@ dependencies {
     implementation "androidx.camera:camera-camera2:$camerax"
     implementation "androidx.camera:camera-lifecycle:$camerax"
     implementation "androidx.camera:camera-view:$camerax"
+
+    // USB-serial support for peripheral modules (PRD §3.14/§3.15), no vendor SDK
+    implementation 'com.github.mik3y:usb-serial-for-android:3.7.0'
 }
