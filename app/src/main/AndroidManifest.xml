@@ -87,5 +87,6 @@
         <activity android:name=".modules.sensors.SensorsActivity" />
         <activity android:name=".modules.battery.BatteryActivity" />
         <activity android:name=".modules.barcode.BarcodeActivity" />
+        <activity android:name=".modules.msr.MsrActivity" />
     </application>
 </manifest>
