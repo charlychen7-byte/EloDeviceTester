@@ -27,5 +27,12 @@ public class TouchActivity extends BaseTestActivity {
                 + "zones. Back to exit.\n全屏铺满网格，手指划过的方格变色，检测边缘与各区域触控死角。返回键退出。");
         addButton("Start Grid Test / 开始网格死角测试", () ->
                 startActivity(new Intent(this, TouchGridActivity.class)));
+
+        addSectionTitle("Sampling Rate & Pressure / 采样率与压感");
+        addInfo("Live touch report rate (Hz) and pressure/contact-size readouts, if supported by "
+                + "the digitizer. Back to exit.\n"
+                + "实时显示触控报点率（Hz）与压力/接触面积（若硬件支持）。返回键退出。");
+        addButton("Start Sampling Test / 开始采样率/压感测试", () ->
+                startActivity(new Intent(this, TouchSamplingActivity.class)));
     }
 }
