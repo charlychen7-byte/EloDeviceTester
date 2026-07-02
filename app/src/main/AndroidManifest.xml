@@ -95,5 +95,6 @@
         <activity android:name=".modules.serial.SerialActivity" />
         <activity android:name=".modules.displayext.DisplayExtActivity" />
         <activity android:name=".modules.cellular.CellularActivity" />
+        <activity android:name=".modules.usbotg.UsbOtgActivity" />
     </application>
 </manifest>

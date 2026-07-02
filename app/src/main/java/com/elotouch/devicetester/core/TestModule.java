@@ -17,6 +17,7 @@ import com.elotouch.devicetester.modules.sensors.SensorsActivity;
 import com.elotouch.devicetester.modules.serial.SerialActivity;
 import com.elotouch.devicetester.modules.storage.StorageActivity;
 import com.elotouch.devicetester.modules.touch.TouchActivity;
+import com.elotouch.devicetester.modules.usbotg.UsbOtgActivity;
 import com.elotouch.devicetester.modules.vibrator.VibratorActivity;
 import com.elotouch.devicetester.modules.wifibt.WifiBtActivity;
 
@@ -43,7 +44,8 @@ public enum TestModule {
     MSR("MSR / 刷卡器", "💳", MsrActivity.class, HardwareDetector.Feature.ALWAYS),
     SERIAL_IO("Serial I/O / 序口外设", "🖨️", SerialActivity.class, HardwareDetector.Feature.ALWAYS),
     DISPLAY_EXT("Display Ext / 双屏网络", "📺", DisplayExtActivity.class, HardwareDetector.Feature.ALWAYS),
-    CELLULAR("Cellular / 蜂窝网络", "📡", CellularActivity.class, HardwareDetector.Feature.CELLULAR);
+    CELLULAR("Cellular / 蜂窝网络", "📡", CellularActivity.class, HardwareDetector.Feature.CELLULAR),
+    USB_OTG("USB/OTG", "🔌", UsbOtgActivity.class, HardwareDetector.Feature.ALWAYS);
 
     public final String title;
     public final String icon;
