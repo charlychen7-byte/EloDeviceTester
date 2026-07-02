@@ -12,6 +12,7 @@ import com.elotouch.devicetester.modules.gps.GpsActivity;
 import com.elotouch.devicetester.modules.msr.MsrActivity;
 import com.elotouch.devicetester.modules.nfc.NfcActivity;
 import com.elotouch.devicetester.modules.sensors.SensorsActivity;
+import com.elotouch.devicetester.modules.serial.SerialActivity;
 import com.elotouch.devicetester.modules.storage.StorageActivity;
 import com.elotouch.devicetester.modules.touch.TouchActivity;
 import com.elotouch.devicetester.modules.vibrator.VibratorActivity;
@@ -37,7 +38,8 @@ public enum TestModule {
     WIFI_BT("Wi-Fi & BT", "📶", WifiBtActivity.class, HardwareDetector.Feature.WIFI),
     SENSORS("Sensors / 传感器", "🧭", SensorsActivity.class, HardwareDetector.Feature.SENSORS),
     BARCODE("Barcode/QR / 条码扫描", "🔍", BarcodeActivity.class, HardwareDetector.Feature.ALWAYS),
-    MSR("MSR / 刷卡器", "💳", MsrActivity.class, HardwareDetector.Feature.ALWAYS);
+    MSR("MSR / 刷卡器", "💳", MsrActivity.class, HardwareDetector.Feature.ALWAYS),
+    SERIAL_IO("Serial I/O / 序口外设", "🖨️", SerialActivity.class, HardwareDetector.Feature.ALWAYS);
 
     public final String title;
     public final String icon;
