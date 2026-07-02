@@ -86,5 +86,6 @@
         <activity android:name=".modules.wifibt.WifiBtActivity" />
         <activity android:name=".modules.sensors.SensorsActivity" />
         <activity android:name=".modules.battery.BatteryActivity" />
+        <activity android:name=".modules.barcode.BarcodeActivity" />
     </application>
 </manifest>

@@ -3,6 +3,7 @@ package com.elotouch.devicetester.core;
 import android.app.Activity;
 
 import com.elotouch.devicetester.modules.audio.AudioActivity;
+import com.elotouch.devicetester.modules.barcode.BarcodeActivity;
 import com.elotouch.devicetester.modules.battery.BatteryActivity;
 import com.elotouch.devicetester.modules.camera.CameraActivity;
 import com.elotouch.devicetester.modules.ddr.DdrActivity;
@@ -33,7 +34,8 @@ public enum TestModule {
     GPS("GPS / 定位", "🛰️", GpsActivity.class, HardwareDetector.Feature.GPS),
     NFC("NFC", "📇", NfcActivity.class, HardwareDetector.Feature.NFC),
     WIFI_BT("Wi-Fi & BT", "📶", WifiBtActivity.class, HardwareDetector.Feature.WIFI),
-    SENSORS("Sensors / 传感器", "🧭", SensorsActivity.class, HardwareDetector.Feature.SENSORS);
+    SENSORS("Sensors / 传感器", "🧭", SensorsActivity.class, HardwareDetector.Feature.SENSORS),
+    BARCODE("Barcode/QR / 条码扫描", "🔍", BarcodeActivity.class, HardwareDetector.Feature.ALWAYS);
 
     public final String title;
     public final String icon;
