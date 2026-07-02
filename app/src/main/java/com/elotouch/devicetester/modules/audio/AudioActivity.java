@@ -2,9 +2,11 @@ package com.elotouch.devicetester.modules.audio;
 
 import android.Manifest;
 import android.annotation.SuppressLint;
+import android.media.AudioAttributes;
 import android.media.AudioFormat;
 import android.media.AudioManager;
 import android.media.AudioRecord;
+import android.media.AudioTrack;
 import android.media.MediaPlayer;
 import android.media.MediaRecorder;
 import android.media.ToneGenerator;
@@ -30,6 +32,7 @@ public class AudioActivity extends BaseTestActivity {
     private File recordFile;
     private TextView micText;
     private TextView latencyText;
+    private TextView channelText;
 
     @Override
     protected String title() {
@@ -54,6 +57,10 @@ public class AudioActivity extends BaseTestActivity {
         addSectionTitle("Audio Latency / 音频延迟测试");
         latencyText = addInfo("Tap to measure. 点击开始测量。");
         addButton("Measure Latency / 测量延迟", this::measureLatency);
+
+        addSectionTitle("Sample Rate & Channels / 采样率与声道验证");
+        channelText = addInfo("Tap to verify. 点击开始验证。");
+        addButton("Verify Left/Right Channel / 验证左右声道", this::verifyChannels);
     }
 
     private void playSpeaker() {
@@ -203,6 +210,56 @@ public class AudioActivity extends BaseTestActivity {
                 record.release();
             }
         });
+    }
+
+    private void verifyChannels() {
+        String outRate = audioManager.getProperty(AudioManager.PROPERTY_OUTPUT_SAMPLE_RATE);
+        channelText.setText("Output sample rate 输出采样率：" + outRate + " Hz\n"
+                + "Playing left channel… 正在播放左声道…\n"
+                + "(THD/distortion metrics need a dedicated audio analyzer and are out of scope; "
+                + "phone mics aren't precise enough. THD/失真度需专用音频分析仪，手机麦克风精度不足，不纳入范围)");
+        playChannelTone(true);
+    }
+
+    private void playChannelTone(boolean left) {
+        int sampleRate = 44100;
+        int numSamples = sampleRate; // 1 second
+        short[] mono = new short[numSamples];
+        for (int i = 0; i < numSamples; i++) {
+            mono[i] = (short) (Short.MAX_VALUE * 0.5 * Math.sin(2 * Math.PI * 440 * i / sampleRate));
+        }
+        short[] stereo = new short[numSamples * 2];
+        for (int i = 0; i < numSamples; i++) {
+            stereo[i * 2] = left ? mono[i] : 0;
+            stereo[i * 2 + 1] = left ? 0 : mono[i];
+        }
+        AudioTrack track = new AudioTrack.Builder()
+                .setAudioAttributes(new AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build())
+                .setAudioFormat(new AudioFormat.Builder()
+                        .setSampleRate(sampleRate)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_STEREO)
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .build())
+                .setBufferSizeInBytes(stereo.length * 2)
+                .setTransferMode(AudioTrack.MODE_STATIC)
+                .build();
+        track.write(stereo, 0, stereo.length);
+        track.play();
+        String channel = left ? "left 左" : "right 右";
+        channelText.setText("Playing " + channel + " channel only — confirm you hear it on that side.\n"
+                + "仅播放" + (left ? "左" : "右") + "声道，请确认声音仅从对应一侧发出。");
+        main.postDelayed(() -> {
+            track.stop();
+            track.release();
+            if (left) {
+                playChannelTone(false);
+            } else {
+                channelText.setText(channelText.getText() + "\nDone. 测试完成。");
+            }
+        }, 1200);
     }
 
     @Override
