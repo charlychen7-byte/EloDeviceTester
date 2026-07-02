@@ -59,9 +59,12 @@ Two-level navigation (PRD §2):
 
 ## Module map
 
-`ddr` · `storage` · `display` (+ `ColorTestActivity`, `GrayscaleActivity`) ·
-`touch` (+ `MultiTouchActivity`, `TouchGridActivity`) · `battery` · `vibrator` ·
-`camera` (CameraX) · `audio` · `gps` · `nfc` · `wifibt` · `sensors`
+`ddr` · `storage` · `display` (+ `ColorTestActivity`, `GrayscaleActivity`,
+`ColorAccuracyActivity`, `MuraActivity`, `TouchAlignmentActivity`) ·
+`touch` (+ `MultiTouchActivity`, `TouchGridActivity`, `TouchSamplingActivity`) ·
+`battery` · `vibrator` · `camera` (CameraX) · `audio` · `gps` · `nfc` ·
+`wifibt` · `sensors` · `barcode` · `msr` · `serial` · `displayext` ·
+`cellular` · `usbotg`
 
 ## Known device-dependent / best-effort items
 
@@ -72,3 +75,14 @@ erroring (see PRD "实现说明" notes):
 - **DDR bandwidth** — Java array copy is a *relative* figure, not physical bandwidth.
 - **Audio earpiece routing** & **secondary mic** — no standard API; approximate.
 - **Wi-Fi scan** — throttled by the system and needs location permission + services on.
+- **Barcode symbology** — wedge-mode scanners only transmit the decoded text,
+  not the barcode format (Code128/QR/etc.); the field is intentionally omitted.
+- **MSR IC/contactless response** — shown as raw bytes from the attached
+  serial reader, not a parsed ATR; the exact protocol is reader-specific.
+- **Audio latency** — an approximate round-trip figure from mic self-capture,
+  affected by acoustic crosstalk and scheduling jitter; not lab-grade.
+- **Multi-camera enumeration** — some OEMs hide extra back cameras
+  (ultra-wide/tele) behind one logical camera ID; listing is best-effort.
+- **USB-serial peripherals** (§3.14/§3.15) need a device compatible with the
+  open-source `usb-serial-for-android` library (common CP210x/FTDI/CH34x/PL2303
+  chipsets); vendor-specific protocols are out of scope.
