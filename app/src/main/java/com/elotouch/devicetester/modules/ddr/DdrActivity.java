@@ -210,6 +210,9 @@ public class DdrActivity extends BaseTestActivity {
         private final String failureKeyword;
         private final NativeProcessRunner runner = new NativeProcessRunner();
         private final Deque<String> lastLines = new ArrayDeque<>();
+        private final Object logBufferLock = new Object();
+        private final List<String> pendingLines = new ArrayList<>();
+        private boolean uiFlushScheduled;
 
         private TextView statusText;
         private TextView logText;
@@ -264,6 +267,10 @@ public class DdrActivity extends BaseTestActivity {
             failureSeen = false;
             startFailure = null;
             lastLines.clear();
+            synchronized (logBufferLock) {
+                pendingLines.clear();
+                uiFlushScheduled = false;
+            }
             startTimeMs = System.currentTimeMillis();
             startButton.setEnabled(false);
             stopButton.setEnabled(true);
@@ -289,13 +296,33 @@ public class DdrActivity extends BaseTestActivity {
 
         private void onLine(String line) {
             if (line.contains(failureKeyword)) failureSeen = true;
-            ui(() -> {
+            boolean shouldSchedule = false;
+            synchronized (logBufferLock) {
+                pendingLines.add(line);
+                if (!uiFlushScheduled) {
+                    uiFlushScheduled = true;
+                    shouldSchedule = true;
+                }
+            }
+            if (shouldSchedule) {
+                ui(this::flushPendingLines);
+            }
+        }
+
+        private void flushPendingLines() {
+            List<String> toAppend;
+            synchronized (logBufferLock) {
+                toAppend = new ArrayList<>(pendingLines);
+                pendingLines.clear();
+                uiFlushScheduled = false;
+            }
+            for (String l : toAppend) {
                 if (lastLines.size() >= 10) lastLines.removeFirst();
-                lastLines.addLast(line);
-                StringBuilder sb = new StringBuilder();
-                for (String l : lastLines) sb.append(l).append('\n');
-                logText.setText(sb.toString());
-            });
+                lastLines.addLast(l);
+            }
+            StringBuilder sb = new StringBuilder();
+            for (String l : lastLines) sb.append(l).append('\n');
+            logText.setText(sb.toString());
         }
 
         private void onFinished() {
