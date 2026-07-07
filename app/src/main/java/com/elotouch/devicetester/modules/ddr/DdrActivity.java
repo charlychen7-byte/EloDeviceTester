@@ -219,6 +219,7 @@ public class DdrActivity extends BaseTestActivity {
         private boolean running;
         private volatile boolean failureSeen;
         private long startTimeMs;
+        private String startFailure;
 
         NativeTestSection other;
 
@@ -261,6 +262,7 @@ public class DdrActivity extends BaseTestActivity {
             if (running) return;
             running = true;
             failureSeen = false;
+            startFailure = null;
             lastLines.clear();
             startTimeMs = System.currentTimeMillis();
             startButton.setEnabled(false);
@@ -275,7 +277,7 @@ public class DdrActivity extends BaseTestActivity {
                 try {
                     runner.run(DdrActivity.this, soName, args, this::onLine);
                 } catch (IOException e) {
-                    ui(() -> statusText.setText("Failed to start 启动失败: " + e.getMessage()));
+                    startFailure = e.getMessage();
                 }
                 ui(this::onFinished);
             });
@@ -301,9 +303,13 @@ public class DdrActivity extends BaseTestActivity {
             startButton.setEnabled(true);
             stopButton.setEnabled(false);
             if (other != null) other.startButton.setEnabled(true);
-            statusText.setText(failureSeen
-                    ? "FAILED 测试失败，请查看日志 / see log below"
-                    : "PASSED 测试完成，未发现错误 / no errors detected");
+            if (startFailure != null) {
+                statusText.setText("Failed to start 启动失败: " + startFailure);
+            } else {
+                statusText.setText(failureSeen
+                        ? "FAILED 测试失败，请查看日志 / see log below"
+                        : "PASSED 测试完成，未发现错误 / no errors detected");
+            }
         }
     }
 }
