@@ -2,6 +2,7 @@ package com.elotouch.devicetester.modules.ddr;
 
 import android.app.ActivityManager;
 import android.content.Context;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.widget.Button;
 import android.widget.TextView;
@@ -205,6 +206,8 @@ public class DdrActivity extends BaseTestActivity {
      * {@link BaseTestActivity}'s single-thread executor).
      */
     private final class NativeTestSection {
+        private static final int MAX_DISPLAY_LINE_LENGTH = 200;
+
         private final String soName;
         private final Supplier<String[]> argsSupplier;
         private final String failureKeyword;
@@ -250,6 +253,8 @@ public class DdrActivity extends BaseTestActivity {
             statusText = addInfo("Tap Start. 点击开始。");
             logText = addInfo("");
             logText.setTypeface(Typeface.MONOSPACE);
+            logText.setBackgroundColor(Color.BLACK);
+            logText.setTextColor(Color.WHITE);
             startButton = addButton("Start / 开始", this::start);
             stopButton = addButton("Stop / 停止", this::stop);
             stopButton.setEnabled(false);
@@ -318,11 +323,16 @@ public class DdrActivity extends BaseTestActivity {
             }
             for (String l : toAppend) {
                 if (lastLines.size() >= 10) lastLines.removeFirst();
-                lastLines.addLast(l);
+                lastLines.addLast(truncateForDisplay(l));
             }
             StringBuilder sb = new StringBuilder();
             for (String l : lastLines) sb.append(l).append('\n');
             logText.setText(sb.toString());
+        }
+
+        private static String truncateForDisplay(String line) {
+            if (line.length() <= MAX_DISPLAY_LINE_LENGTH) return line;
+            return "…" + line.substring(line.length() - MAX_DISPLAY_LINE_LENGTH);
         }
 
         private void onFinished() {
