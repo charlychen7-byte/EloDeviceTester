@@ -72,6 +72,11 @@ erroring (see PRD "实现说明" notes):
 
 - **Battery live current** — many ROMs return 0/unreadable → shown as "不支持".
 - **DDR bandwidth** — Java array copy is a *relative* figure, not physical bandwidth.
+- **DDR memtester / QMESA** — bundled prebuilt arm64-v8a native binaries, packaged as
+  `jniLibs/arm64-v8a/lib*.so` with `packaging.jniLibs.useLegacyPackaging = true` in
+  `app/build.gradle` so they're extracted to `nativeLibraryDir` and remain executable
+  under API 29+ W^X restrictions (raw `assets/` + runtime `chmod` does NOT work on
+  this app's `targetSdk 34`).
 - **Audio earpiece routing** & **secondary mic** — no standard API; approximate.
 - **Wi-Fi scan** — throttled by the system and needs location permission + services on.
 - **Barcode symbology** — wedge-mode scanners only transmit the decoded text,
