@@ -71,6 +71,8 @@
         </activity>
 
         <activity android:name=".modules.ddr.DdrActivity" />
+        <activity android:name=".modules.ddr.MemtesterActivity" />
+        <activity android:name=".modules.ddr.QmesaActivity" />
         <activity android:name=".modules.storage.StorageActivity" />
         <activity android:name=".modules.nfc.NfcActivity" android:launchMode="singleTop" />
         <activity android:name=".modules.gps.GpsActivity" />

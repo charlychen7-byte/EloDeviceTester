@@ -2,26 +2,19 @@ package com.elotouch.devicetester.modules.ddr;
 
 import android.app.ActivityManager;
 import android.content.Context;
-import android.graphics.Color;
-import android.graphics.Typeface;
-import android.widget.Button;
+import android.content.Intent;
 import android.widget.TextView;
 
 import com.elotouch.devicetester.core.BaseTestActivity;
-import com.elotouch.devicetester.core.NativeProcessRunner;
 
-import java.io.IOException;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
-import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
-import java.util.function.Supplier;
 
 /**
  * DDR / RAM module (PRD §3.1): capacity info, read-write bandwidth (relative
- * reference value), a safe stress-fill test, and two bundled native
- * diagnostic tools (memtester, QMESA).
+ * reference value), a safe stress-fill test, and launcher buttons for two
+ * bundled native diagnostic tools (memtester, QMESA), each its own Activity.
  */
 public class DdrActivity extends BaseTestActivity {
 
@@ -31,9 +24,6 @@ public class DdrActivity extends BaseTestActivity {
 
     /** Held memory blocks for the stress test; cleared on stop. */
     private final List<byte[]> blocks = new ArrayList<>();
-
-    private NativeTestSection memtesterSection;
-    private NativeTestSection qmesaSection;
 
     @Override
     protected String title() {
@@ -62,36 +52,19 @@ public class DdrActivity extends BaseTestActivity {
         });
 
         addSectionTitle("Memtester (native tool 原生工具)");
-        memtesterSection = new NativeTestSection("libmemtester.so", this::memtesterArgs, "FAILURE");
-        memtesterSection.render(
-                "Runs the open-source memtester binary against ~1/4 of total RAM "
-                        + "(capped at 80% of available RAM), looping forever until stopped.\n"
-                        + "运行开源 memtester 工具，测试容量约为总内存的 1/4（不超过可用内存的 80%），"
-                        + "无限循环直到点击 Stop。");
+        addInfo("Runs the open-source memtester binary against ~1/4 of total RAM "
+                + "(capped at 80% of available RAM), looping forever until stopped.\n"
+                + "运行开源 memtester 工具，测试容量约为总内存的 1/4（不超过可用内存的 80%），"
+                + "无限循环直到点击 Stop。");
+        addButton("Enter Test / 进入测试",
+                () -> startActivity(new Intent(this, MemtesterActivity.class)));
 
         addSectionTitle("QMESA (native tool 原生工具)");
-        qmesaSection = new NativeTestSection("libqmesa64.so", DdrActivity::qmesaArgs, "FAILED");
-        qmesaSection.render(
-                "Runs the vendor QMESA stress tool with an 8-16MB working set across "
-                        + "4 threads, for up to ~2.7 hours or until stopped.\n"
-                        + "运行厂商 QMESA 压力测试工具（8-16MB 工作集，4 线程），最长约 2.7 小时或手动停止。");
-
-        memtesterSection.other = qmesaSection;
-        qmesaSection.other = memtesterSection;
-    }
-
-    private String[] memtesterArgs() {
-        ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
-        ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
-        am.getMemoryInfo(mi);
-        long sizeBytes = Math.min(mi.totalMem / 4, (long) (mi.availMem * 0.8));
-        long sizeMb = sizeBytes / (1024 * 1024);
-        return new String[]{sizeMb + "M"};
-    }
-
-    private static String[] qmesaArgs() {
-        return new String[]{"-startSize", "8MB", "-endSize", "8MB", "-totalSize", "16MB",
-                "-errorCheck", "T", "-secs", "10000", "-numThreads", "4"};
+        addInfo("Runs the vendor QMESA stress tool with an 8-16MB working set across "
+                + "4 threads, for up to ~2.7 hours or until stopped.\n"
+                + "运行厂商 QMESA 压力测试工具（8-16MB 工作集，4 线程），最长约 2.7 小时或手动停止。");
+        addButton("Enter Test / 进入测试",
+                () -> startActivity(new Intent(this, QmesaActivity.class)));
     }
 
     private void refreshInfo() {
@@ -187,166 +160,11 @@ public class DdrActivity extends BaseTestActivity {
     @Override
     protected void onStopTests() {
         releaseBlocks();
-        if (memtesterSection != null) memtesterSection.stop();
-        if (qmesaSection != null) qmesaSection.stop();
     }
 
     private static String fmt(long bytes) {
         double mb = bytes / (1024.0 * 1024.0);
         if (mb >= 1024) return String.format(Locale.US, "%.2f GB", mb / 1024.0);
         return String.format(Locale.US, "%.0f MB", mb);
-    }
-
-    /**
-     * One native-binary test block (memtester / QMESA): renders its own UI,
-     * launches the binary via {@link NativeProcessRunner}, and shows a
-     * rolling 10-line log plus an elapsed-time / pass-fail status line.
-     * {@link #other} is wired up after construction so the two sections can
-     * disable each other's Start button while one is running (they share
-     * {@link BaseTestActivity}'s single-thread executor).
-     */
-    private final class NativeTestSection {
-        private static final int MAX_DISPLAY_LINE_LENGTH = 200;
-
-        private final String soName;
-        private final Supplier<String[]> argsSupplier;
-        private final String failureKeyword;
-        private final NativeProcessRunner runner = new NativeProcessRunner();
-        private final Deque<String> lastLines = new ArrayDeque<>();
-        private final Object logBufferLock = new Object();
-        private final List<String> pendingLines = new ArrayList<>();
-        private boolean uiFlushScheduled;
-
-        private TextView statusText;
-        private TextView logText;
-        private Button startButton;
-        private Button stopButton;
-
-        private boolean running;
-        private volatile boolean failureSeen;
-        private long startTimeMs;
-        private String startFailure;
-
-        NativeTestSection other;
-
-        private final Runnable tick = new Runnable() {
-            @Override
-            public void run() {
-                if (!running) return;
-                long elapsed = (System.currentTimeMillis() - startTimeMs) / 1000;
-                statusText.setText(String.format(Locale.US,
-                        "%s  Elapsed 已测试时间: %02d:%02d",
-                        failureSeen ? "FAILURE detected 检测到失败" : "Running... 运行中",
-                        elapsed / 60, elapsed % 60));
-                main.postDelayed(this, 1000);
-            }
-        };
-
-        NativeTestSection(String soName, Supplier<String[]> argsSupplier, String failureKeyword) {
-            this.soName = soName;
-            this.argsSupplier = argsSupplier;
-            this.failureKeyword = failureKeyword;
-        }
-
-        void render(String description) {
-            addInfo(description);
-            statusText = addInfo("Tap Start. 点击开始。");
-            logText = addInfo("");
-            logText.setTypeface(Typeface.MONOSPACE);
-            logText.setBackgroundColor(Color.BLACK);
-            logText.setTextColor(Color.WHITE);
-            startButton = addButton("Start / 开始", this::start);
-            stopButton = addButton("Stop / 停止", this::stop);
-            stopButton.setEnabled(false);
-
-            if (!NativeProcessRunner.isArm64Supported()) {
-                startButton.setEnabled(false);
-                statusText.setText("Unsupported CPU architecture (requires arm64-v8a).\n"
-                        + "当前设备架构不支持 arm64-v8a 原生工具。");
-            }
-        }
-
-        private void start() {
-            if (running) return;
-            running = true;
-            failureSeen = false;
-            startFailure = null;
-            lastLines.clear();
-            synchronized (logBufferLock) {
-                pendingLines.clear();
-                uiFlushScheduled = false;
-            }
-            startTimeMs = System.currentTimeMillis();
-            startButton.setEnabled(false);
-            stopButton.setEnabled(true);
-            if (other != null) other.startButton.setEnabled(false);
-            logText.setText("");
-            statusText.setText("Running... 运行中");
-            main.post(tick);
-
-            String[] args = argsSupplier.get();
-            runAsync(() -> {
-                try {
-                    runner.run(DdrActivity.this, soName, args, this::onLine);
-                } catch (IOException e) {
-                    startFailure = e.getMessage();
-                }
-                ui(this::onFinished);
-            });
-        }
-
-        private void stop() {
-            runner.stop();
-        }
-
-        private void onLine(String line) {
-            if (line.contains(failureKeyword)) failureSeen = true;
-            boolean shouldSchedule = false;
-            synchronized (logBufferLock) {
-                pendingLines.add(line);
-                if (!uiFlushScheduled) {
-                    uiFlushScheduled = true;
-                    shouldSchedule = true;
-                }
-            }
-            if (shouldSchedule) {
-                ui(this::flushPendingLines);
-            }
-        }
-
-        private void flushPendingLines() {
-            List<String> toAppend;
-            synchronized (logBufferLock) {
-                toAppend = new ArrayList<>(pendingLines);
-                pendingLines.clear();
-                uiFlushScheduled = false;
-            }
-            for (String l : toAppend) {
-                if (lastLines.size() >= 10) lastLines.removeFirst();
-                lastLines.addLast(truncateForDisplay(l));
-            }
-            StringBuilder sb = new StringBuilder();
-            for (String l : lastLines) sb.append(l).append('\n');
-            logText.setText(sb.toString());
-        }
-
-        private static String truncateForDisplay(String line) {
-            if (line.length() <= MAX_DISPLAY_LINE_LENGTH) return line;
-            return "…" + line.substring(line.length() - MAX_DISPLAY_LINE_LENGTH);
-        }
-
-        private void onFinished() {
-            running = false;
-            startButton.setEnabled(true);
-            stopButton.setEnabled(false);
-            if (other != null) other.startButton.setEnabled(true);
-            if (startFailure != null) {
-                statusText.setText("Failed to start 启动失败: " + startFailure);
-            } else {
-                statusText.setText(failureSeen
-                        ? "FAILED 测试失败，请查看日志 / see log below"
-                        : "PASSED 测试完成，未发现错误 / no errors detected");
-            }
-        }
     }
 }
