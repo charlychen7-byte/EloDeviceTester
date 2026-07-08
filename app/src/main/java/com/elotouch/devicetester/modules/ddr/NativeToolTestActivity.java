@@ -53,6 +53,7 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
     private volatile boolean failureSeen;
     private long startTimeMs;
     private String startFailure;
+    private boolean userStopRequested;
 
     private final Runnable tick = new Runnable() {
         @Override
@@ -91,6 +92,7 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
         running = true;
         failureSeen = false;
         startFailure = null;
+        userStopRequested = false;
         lastLines.clear();
         synchronized (logBufferLock) {
             pendingLines.clear();
@@ -115,6 +117,7 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
     }
 
     private void stop() {
+        userStopRequested = true;
         runner.stop();
     }
 
@@ -160,8 +163,17 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
         stopButton.setEnabled(false);
         long elapsed = (System.currentTimeMillis() - startTimeMs) / 1000;
         String elapsedStr = String.format(Locale.US, "%02d:%02d", elapsed / 60, elapsed % 60);
+        int exitCode = runner.lastExitCode();
+        boolean killedBySignal = exitCode >= 129 && exitCode <= 192;
         if (startFailure != null) {
             statusText.setText("Failed to start 启动失败: " + startFailure);
+        } else if (killedBySignal && !userStopRequested) {
+            int signal = exitCode - 128;
+            statusText.setText(String.format(Locale.US,
+                    "Killed by OS (signal %d), elapsed %s — device sandbox policy may not "
+                            + "support this binary.\n被系统终止（信号 %d），已测试时间 %s"
+                            + "——设备沙箱策略可能不支持此二进制文件。",
+                    signal, elapsedStr, signal, elapsedStr));
         } else if (failureSeen) {
             statusText.setText(String.format(Locale.US,
                     "FAILED 测试失败，已测试时间 %s，请查看日志 / see log below, elapsed %s",
@@ -175,6 +187,7 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
 
     @Override
     protected void onStopTests() {
+        userStopRequested = true;
         runner.stop();
     }
 }

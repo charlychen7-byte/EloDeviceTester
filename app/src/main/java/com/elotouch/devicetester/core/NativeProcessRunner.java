@@ -2,6 +2,7 @@ package com.elotouch.devicetester.core;
 
 import android.content.Context;
 import android.os.Build;
+import android.util.Log;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -25,6 +26,12 @@ public class NativeProcessRunner {
 
     private volatile Process process;
     private volatile boolean stopRequested;
+    private volatile int lastExitCode = Integer.MIN_VALUE;
+
+    /** Exit code from the most recently completed {@link #run}, for diagnostics. */
+    public int lastExitCode() {
+        return lastExitCode;
+    }
 
     public static boolean isArm64Supported() {
         for (String abi : Build.SUPPORTED_ABIS) {
@@ -64,7 +71,8 @@ public class NativeProcessRunner {
             }
         } finally {
             try {
-                process.waitFor();
+                lastExitCode = process.waitFor();
+                Log.i("NativeProcessRunner", exePath + " exited with code " + lastExitCode);
             } catch (InterruptedException ignored) {
                 Thread.currentThread().interrupt();
             }
