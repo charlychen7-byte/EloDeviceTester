@@ -1,6 +1,6 @@
 # DDR 模块新增 memtester / QMESA 原生工具测试 — 设计
 
-日期：2026-07-07
+日期：2026-07-07（2026-07-08 修订：真机验证发现问题后，架构由"DDR 页内嵌两个区块"改为"独立 Activity"，见文末修订记录）
 
 ## 背景
 
@@ -56,54 +56,83 @@ public class NativeProcessRunner {
 - `run()` 内部：`ProcessBuilder(nativeLibraryDir + "/" + soName, ...args)`，`redirectErrorStream(true)`，逐行 `BufferedReader.readLine()` 回调，`process.waitFor()` 收尾。
 - `stop()` 从其他线程调用时 `destroy()` 当前 `Process`，让 `readLine()` 立即返回 null 从而使 `run()` 结束——仅靠 `BaseTestActivity` 现有的 `stopped` 布尔标志无法打断阻塞的 native 读取，必须真正杀掉子进程。
 
-### 3. `DdrActivity` UI 新增两个区块
+### 3. UI 架构（2026-07-08 修订版，取代原"DdrActivity 内嵌两区块"方案）
 
-紧跟在现有 "Stress Fill" 区块之后，复用 `addSectionTitle/addInfo/addButton/runAsync/ui()`：
+**`modules/ddr/NativeToolTestActivity`（新增，抽象基类，extends `BaseTestActivity`）**
 
-**Memtester (native)**
-- 容量：`min(totalMem / 4, availMem * 0.8)`（1/4 总内存，但用可用内存的 80% 兜底，避免在内存紧张设备上被系统 OOM-kill 掉，思路与现有 Stress Fill 的安全阈值一致）。
-- 不传 `loops` 参数 → memtester 无限循环，直到用户点 Stop。
-- 已测试时间：Start 时记录起始时间戳，独立的每秒 Handler 计时器更新"已测试时间 mm:ss"文本，Stop 时停止计时器。
-- 日志：固定容量 10 的滚动窗口（`ArrayDeque`，超过 10 行挤出最旧的），只显示最新 10 行。
-- 状态摘要：独立于可见日志窗口，对**每一行**输出做关键字扫描（`FAILURE` → 标红 FAIL），未见失败且仍在运行显示"运行中"，从未失败运行满意也不会因为日志滚出可视区而漏判。
+把原本写在 `DdrActivity` 内部类 `NativeTestSection` 里的全部行为搬到这里（包括真机验证中发现并修复的问题，见下方"真机验证发现的问题与修复"）：
 
-**QMESA (native)**
-- 命令行参数完全按用户给定的原样：`-startSize 8MB -endSize 8MB -totalSize 16MB -errorCheck T -secs 10000 -numThreads 4`。
-- 与 memtester 区块交互风格一致：计时器 + 最新10行滚动日志 + 全量关键字扫描（`FAILED` → 标红）。
+```java
+public abstract class NativeToolTestActivity extends BaseTestActivity {
+    protected abstract String soName();          // 如 "libmemtester.so"
+    protected abstract String[] buildArgs();      // 运行时计算（memtester 依赖当前内存信息）
+    protected abstract String failureKeyword();   // 如 "FAILURE" / "FAILED"
+    protected abstract String description();      // 区块说明文案（双语）
+}
+```
 
-**互斥**：两个区块共用 `BaseTestActivity` 的单线程 `executor`。当其中一个测试在运行时，另一个区块的 Start 按钮直接 `setEnabled(false)`；当前测试 Stop/结束后自动恢复可点击。
+页面元素自上而下：说明文字 → 状态/计时文字 → **Start 按钮 → Stop 按钮**（原方案里在日志框下方，现移到日志框**上方**，位置固定，不会被日志内容撑高而被挤出屏幕）→ 终端风格日志框（黑底白字等宽字体）。
 
-**ABI 兜底**：`buildUi()` 里调用 `NativeProcessRunner.isArm64Supported()`，若为 `false`，两个区块的 Start 按钮直接禁用，文案改为"当前设备架构不支持 arm64-v8a 原生工具 / Native tool requires arm64-v8a"（遵循 PRD 里"缺失能力必须置灰、绝不可点"的约束）。
+- 容量/参数计算、无限循环语义、ABI 兜底文案：与原方案一致，分别下放到 `MemtesterActivity.buildArgs()` / `QmesaActivity.buildArgs()`。
+- **不再需要互斥逻辑**：memtester 和 QMESA 现在是两个独立 Activity，Android 同时只能有一个在前台，原方案里两个区块交叉禁用对方 Start 按钮的 `other` 字段引用整个去掉。
+- 结束（Stop 或进程自然结束）时，状态文字里带上最终时长，例如 `PASSED 测试完成，已测试时间 02:15 / no errors detected, elapsed 02:15`。
+
+**`MemtesterActivity extends NativeToolTestActivity`** / **`QmesaActivity extends NativeToolTestActivity`**：各自只提供 `soName()`/`buildArgs()`/`failureKeyword()`/`description()`，参数值与原方案完全一致（memtester 用 `min(totalMem/4, availMem*0.8)`、不传 loops；QMESA 用用户给定的原始命令行）。
+
+**`DdrActivity`**：原来两个区块的全部逻辑删除，改为每个只保留标题 + 一句说明 + 一个"进入测试 Enter Test"按钮：
+
+```java
+addSectionTitle("Memtester (native tool 原生工具)");
+addInfo("...说明文字...");
+addButton("Enter Test / 进入测试", () -> startActivity(new Intent(this, MemtesterActivity.class)));
+```
+
+QMESA 区块同理。
+
+**AndroidManifest.xml**：新增 `MemtesterActivity` / `QmesaActivity` 的 `<activity>` 声明（与 `ColorTestActivity` 等 Display 模块的子测试 Activity 同样的声明方式，不需要新增 `TestModule` 枚举项，因为它们不是一级模块）。
 
 ### 4. 生命周期与错误处理
 
-- `DdrActivity.onStopTests()` 追加对两个 `NativeProcessRunner` 实例的 `stop()` 调用，确保切后台/退出页面时不留子进程（与现有 `releaseBlocks()` 同一套 `onStopTests` 约定）。
-- `ProcessBuilder.start()` 抛 `IOException` 时捕获并在摘要行显示"启动失败: <message>"，不让整个 Activity 崩溃。
+- `NativeToolTestActivity.onStopTests()`（每个子类共享基类实现）调用 `NativeProcessRunner.stop()`，确保切后台/退出页面时不留子进程。
+- `ProcessBuilder.start()` 抛 `IOException` 时捕获并在状态文字显示"启动失败: <message>"，不让整个 Activity 崩溃；**必须与用户主动点 Stop 区分开**（见下方修复记录 3），不能把 Stop 误报成启动失败。
 
 ## 数据流
 
 ```
 用户点 Start
-  → runAsync(() -> runner.run(ctx, soName, args, line -> ui(() -> {
-        appendToRollingLog(line);      // 最新10行
-        scanForFailureKeyword(line);   // 全量扫描，更新摘要状态
-    })))
+  → runAsync(() -> runner.run(ctx, soName, args, line -> {
+        更新 failureSeen（全量扫描，不截断）;
+        缓冲进 pendingLines，若无待处理的UI刷新则 post 一次合并刷新（防ANR）;
+    }))
+    → 合并刷新时：显示副本按行截断到~200字符，只保留最新10行
+
 用户点 Stop / onStopTests
-  → runner.stop() -> process.destroy() -> run() 中 readLine() 返回 null -> runAsync 结束
-  → 计时器 Handler 停止
-  → 恢复另一个区块的 Start 按钮可点击
+  → runner.stop() -> stopRequested=true -> process.destroy()
+  → run() 内 readLine() 抛出的 IOException 因 stopRequested=true 被吞掉，run() 正常返回（不再误判为启动失败）
+  → 计时器停止，状态文字显示 PASSED/FAILED + 最终已测试时长
 
 进程自然结束（例如 QMESA 达到 -secs 时长后自行退出；memtester 因未传 loops 正常不会自然结束，仅在异常退出时走此路径）
-  → readLine() 返回 null -> runAsync 正常结束，效果与用户点 Stop 相同：
-  → 计时器停止、恢复另一区块 Start 按钮可点、摘要行定格显示最终 PASS/FAIL
+  → 效果与用户点 Stop 相同
 ```
+
+## 真机验证发现的问题与修复（2026-07-08，原"DdrActivity 内嵌区块"方案阶段发现，架构迁移后仍需保留这些修复）
+
+1. **ANR（已修复）**：memtester 在 mlock 失败时高频刷日志（每秒数千行），原实现每行都 `post` 一次 UI 更新，导致主线程被淹没、输入事件 5 秒无响应，真实触发系统级 ANR。修复：后台线程把行堆进缓冲区，仅当没有已排队的 UI 刷新时才 `post` 一次，UI 线程一次性排干缓冲区并重建日志（详见 `core/NativeProcessRunner` 与日志区渲染代码里的合并刷新机制）。
+2. **单行无界撑高（已修复）**：memtester 用退格符在同一行内写进度，导致单条"逻辑行"可能几万字符长，10 行的滚动窗口在屏幕上占据几十行视觉高度，把 Stop 按钮挤出屏幕。修复：显示副本按尾部截断到 ~200 字符（失败关键字扫描仍对完整原始行进行）；这次架构调整（Start/Stop 移到日志框上方）从布局上进一步兜底了这个问题。
+3. **Stop 被误报为启动失败（已修复）**：`process.destroy()` 会导致阻塞中的 `readLine()` 抛 `IOException`，原实现把这个异常和"二进制没启动起来"混为一谈，导致正常点 Stop 却显示"启动失败"。修复：`NativeProcessRunner` 内加 `stopRequested` 标志，`stop()` 时置位，读循环里区分这两种情况。
+4. 附带需求：日志框改为黑底白字终端风格（已实现）。
+
+## 已知问题（待跟进，不阻塞本次架构调整）
+
+- **QMESA 在 App 自身进程中执行无输出**：直接用 `adb shell run-as com.elotouch.devicetester <路径>/libqmesa64.so ...` 手动执行完全正常（完整跑出横幅和测试过程），但通过 App 的 `NativeProcessRunner.run()` 调用时，`readLine()` 立即返回 EOF、没有任何输出，且 `ps` 里也看不到对应子进程存活的痕迹。初步怀疑与 QMESA_64 是非 PIE 的普通 Linux 静态可执行文件（不是 memtester 那种 Android 编译的 PIE 格式）有关，`run-as` 拿到的 shell 域 SELinux 权限比 App 自身的 `untrusted_app` 域更宽松，两者对同一文件的执行结果不同。已确认文件本身完好（`libqmesa64.so` 与 `libmemtester.so` 在设备上的 SELinux label 均为 `u:object_r:apk_data_file:s0`，权限 `rwxr-xr-x`，大小正确）。此问题排查已推迟到本次 UI 架构调整完成之后。
 
 ## 测试计划
 
 项目当前没有自动化测试基础设施（README: "No automated tests yet"），沿用现状，采用手动验证：
 
-1. 真机（arm64-v8a）上分别点 Start memtester / QMESA，确认：日志开始滚动、计时器开始跳动、另一个区块的 Start 按钮被禁用。
-2. 点 Stop，确认：进程被杀（可用 `adb shell ps` 确认无残留 `libmemtester.so`/`libqmesa64.so` 进程）、计时器停止、另一按钮恢复可点。
-3. 切到后台再回来 / 退出该 Activity 再进入，确认没有残留进程、UI 状态复位。
-4. 人为制造一次失败场景较难（两个工具本身就是硬件诊断工具），此项以代码走查关键字匹配逻辑为准，配合真实内存故障机（如有）复测。
-5. 走查 `isArm64Supported()` 分支：在非 arm64 设备/模拟器（如 x86_64 模拟器）上确认两个区块的 Start 按钮为禁用状态、文案正确。
+1. DDR 页面点"进入测试"，确认正确跳转到 `MemtesterActivity` / `QmesaActivity`，标题、说明文字正确。
+2. 新页面里点 Start，确认：日志开始滚动（黑底白字终端样式）、状态文字开始跳动显示已测试时间、Start 按钮禁用、Stop 按钮启用。
+3. 点 Stop，确认：进程被杀（`adb shell ps` 确认无残留 `libmemtester.so`/`libqmesa64.so` 进程）、状态文字显示 PASSED/FAILED 并带最终已测试时长（不是"启动失败"）、Start 按钮恢复可点。
+4. 按返回键退出测试页面（不点 Stop），确认 `onStopTests()` 正确杀掉子进程，无残留。
+5. 走查 `isArm64Supported()` 分支：在非 arm64 设备/模拟器上确认 Start 按钮为禁用状态、文案正确。
+6. 长时间运行（如 memtester 跑过多个 subtest，产生大量超长单行日志），确认 Start/Stop 按钮位置固定、无需大量滚动即可点到。
