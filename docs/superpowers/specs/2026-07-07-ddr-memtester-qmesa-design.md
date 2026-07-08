@@ -122,9 +122,15 @@ QMESA 区块同理。
 3. **Stop 被误报为启动失败（已修复）**：`process.destroy()` 会导致阻塞中的 `readLine()` 抛 `IOException`，原实现把这个异常和"二进制没启动起来"混为一谈，导致正常点 Stop 却显示"启动失败"。修复：`NativeProcessRunner` 内加 `stopRequested` 标志，`stop()` 时置位，读循环里区分这两种情况。
 4. 附带需求：日志框改为黑底白字终端风格（已实现）。
 
-## 已知问题（待跟进，不阻塞本次架构调整）
+## QMESA 在 App 自身进程中执行无输出 — 根因确认（2026-07-08）
 
-- **QMESA 在 App 自身进程中执行无输出**：直接用 `adb shell run-as com.elotouch.devicetester <路径>/libqmesa64.so ...` 手动执行完全正常（完整跑出横幅和测试过程），但通过 App 的 `NativeProcessRunner.run()` 调用时，`readLine()` 立即返回 EOF、没有任何输出，且 `ps` 里也看不到对应子进程存活的痕迹。初步怀疑与 QMESA_64 是非 PIE 的普通 Linux 静态可执行文件（不是 memtester 那种 Android 编译的 PIE 格式）有关，`run-as` 拿到的 shell 域 SELinux 权限比 App 自身的 `untrusted_app` 域更宽松，两者对同一文件的执行结果不同。已确认文件本身完好（`libqmesa64.so` 与 `libmemtester.so` 在设备上的 SELinux label 均为 `u:object_r:apk_data_file:s0`，权限 `rwxr-xr-x`，大小正确）。此问题排查已推迟到本次 UI 架构调整完成之后。
+**现象**：`adb shell run-as com.elotouch.devicetester <路径>/libqmesa64.so ...` 手动执行完全正常（完整跑出横幅和测试过程），但通过 App 的 `NativeProcessRunner.run()` 调用时，`readLine()` 立即返回 EOF、没有任何输出，`ps` 也看不到子进程存活的痕迹。
+
+**根因**：给 `NativeProcessRunner` 加了 `lastExitCode()` 诊断（`process.waitFor()` 的返回值）后确认，App 进程里跑出的 `libqmesa64.so` 退出码是 **159 = 128 + 31（SIGSYS）**。这是 Android App 沙箱的 **seccomp-bpf 系统调用过滤器**杀死进程的标志性退出码：`QMESA_64` 是用很老的通用 Linux 工具链编译的静态可执行文件（`for GNU/Linux 3.7.0`），启动早期调用了某个 Android 对普通 App 进程明确禁止的系统调用，内核直接用 SIGSYS 杀掉了它——所以看不到任何输出（还没来得及 flush 标准输出缓冲区）、`ps` 也看不到进程（存活时间极短）。没有 avc 拒绝日志是因为 seccomp 违规记录的是内核 audit 的 `SECCOMP` 记录（不是 SELinux 的 `avc: denied`），且只写入内核环形缓冲区，非 root 读不到。`run-as`（shell 域）能正常跑，是因为 shell 进程不经过 Zygote fork，不继承 App 专属的这条 seccomp 过滤规则。
+
+**结论：这是平台级沙箱限制，不是本项目代码的 bug**。seccomp 过滤器由内核对 App 进程强制执行，且会被 exec 出的子进程继承；普通 App（非 root、非系统应用）没有 API 能放宽自己的 seccomp 策略。`QMESA_64` 这个二进制在这台设备的普通 App 沙箱里本质上跑不起来，除非拿到一个针对 Android 该版本 seccomp 策略重新编译过的版本（不在本项目可控范围内）。
+
+**已实现的应对方案**：不试图绕过平台限制，而是诚实展示给用户。`core/NativeProcessRunner` 新增 `lastExitCode()`；`modules/ddr/NativeToolTestActivity` 在 `onFinished()` 里区分"用户主动 Stop 导致的信号终止"（`userStopRequested` 标志，正常现象，仍显示 PASSED/FAILED）和"进程自己被信号意外杀死"（新增分支，退出码在 129-192 范围且非用户主动停止 → 显示"Killed by OS (signal N) — device sandbox policy may not support this binary / 被系统终止（信号 N）——设备沙箱策略可能不支持此二进制文件"），避免把这种情况误报成 PASSED。已在真机上验证两条路径：QMESA 正确显示"Killed by OS (signal 31)"，memtester 的正常 Stop 流程不受影响，仍显示 PASSED + 已测试时间。
 
 ## 测试计划
 
