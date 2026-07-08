@@ -24,6 +24,7 @@ public class NativeProcessRunner {
     }
 
     private volatile Process process;
+    private volatile boolean stopRequested;
 
     public static boolean isArm64Supported() {
         for (String abi : Build.SUPPORTED_ABIS) {
@@ -39,6 +40,7 @@ public class NativeProcessRunner {
      */
     public void run(Context context, String soName, String[] args, LineListener onLine)
             throws IOException {
+        stopRequested = false;
         String exePath = context.getApplicationInfo().nativeLibraryDir + "/" + soName;
         List<String> command = new ArrayList<>();
         command.add(exePath);
@@ -49,8 +51,15 @@ public class NativeProcessRunner {
         process = builder.start();
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
+            while (true) {
+                String line;
+                try {
+                    line = reader.readLine();
+                } catch (IOException e) {
+                    if (stopRequested) break;
+                    throw e;
+                }
+                if (line == null) break;
                 onLine.onLine(line);
             }
         } finally {
@@ -65,6 +74,7 @@ public class NativeProcessRunner {
 
     /** Kills the running process, if any, unblocking a pending {@link #run}. */
     public void stop() {
+        stopRequested = true;
         Process p = process;
         if (p != null) p.destroy();
     }
