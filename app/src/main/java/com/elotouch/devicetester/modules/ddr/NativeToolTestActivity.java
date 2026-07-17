@@ -17,14 +17,17 @@ import java.util.Locale;
 
 /**
  * Base Activity for a bundled native diagnostic tool test (memtester, QMESA):
- * renders a description, a status/elapsed-time line, Start/Stop buttons, and
- * a rolling terminal-style log below them, then launches the tool via
- * {@link NativeProcessRunner} and reports a final PASSED/FAILED status with
- * elapsed time when stopped or finished.
+ * renders a description, optional extra controls, a status/elapsed-time line,
+ * Start/Stop buttons, and a rolling terminal-style log below them, then
+ * launches the tool via {@link NativeProcessRunner} and reports a final
+ * color-coded PASSED/FAILED status with elapsed time (hh:mm:ss) when stopped
+ * or finished.
  */
 public abstract class NativeToolTestActivity extends BaseTestActivity {
 
     private static final int MAX_DISPLAY_LINE_LENGTH = 200;
+    private static final int PASS_COLOR = Color.parseColor("#2E7D32");
+    private static final int FAIL_COLOR = Color.parseColor("#C62828");
 
     /** Bundled executable name under jniLibs/arm64-v8a/, e.g. "libmemtester.so". */
     protected abstract String soName();
@@ -37,6 +40,21 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
 
     /** Bilingual description shown at the top of the page. */
     protected abstract String description();
+
+    /**
+     * Extra controls (radio groups, inputs) inserted between the description
+     * and the Start/Stop buttons. Default: none.
+     */
+    protected void buildExtraControls() {
+    }
+
+    /**
+     * Optional test duration in milliseconds; null means run until manually
+     * stopped (default). Read fresh each time Start is pressed.
+     */
+    protected Long testDurationMs() {
+        return null;
+    }
 
     private final NativeProcessRunner runner = new NativeProcessRunner();
     private final Deque<String> lastLines = new ArrayDeque<>();
@@ -54,6 +72,9 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
     private long startTimeMs;
     private String startFailure;
     private boolean userStopRequested;
+    private int defaultStatusColor;
+
+    private final Runnable autoStopRunnable = this::stop;
 
     private final Runnable tick = new Runnable() {
         @Override
@@ -61,9 +82,9 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
             if (!running) return;
             long elapsed = (System.currentTimeMillis() - startTimeMs) / 1000;
             statusText.setText(String.format(Locale.US,
-                    "%s  Elapsed 已测试时间: %02d:%02d",
+                    "%s  Elapsed 已测试时间: %s",
                     failureSeen ? "FAILURE detected 检测到失败" : "Running... 运行中",
-                    elapsed / 60, elapsed % 60));
+                    formatElapsed(elapsed)));
             main.postDelayed(this, 1000);
         }
     };
@@ -71,7 +92,9 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
     @Override
     protected void buildUi() {
         addInfo(description());
+        buildExtraControls();
         statusText = addInfo("Tap Start. 点击开始。");
+        defaultStatusColor = statusText.getCurrentTextColor();
         startButton = addButton("Start / 开始", this::start);
         stopButton = addButton("Stop / 停止", this::stop);
         stopButton.setEnabled(false);
@@ -101,9 +124,16 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
         startTimeMs = System.currentTimeMillis();
         startButton.setEnabled(false);
         stopButton.setEnabled(true);
+        statusText.setTextColor(defaultStatusColor);
         logText.setText("");
         statusText.setText("Running... 运行中");
         main.post(tick);
+
+        main.removeCallbacks(autoStopRunnable);
+        Long durationMs = testDurationMs();
+        if (durationMs != null) {
+            main.postDelayed(autoStopRunnable, durationMs);
+        }
 
         String[] args = buildArgs();
         runAsync(() -> {
@@ -157,28 +187,38 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
         return "…" + line.substring(line.length() - MAX_DISPLAY_LINE_LENGTH);
     }
 
+    private static String formatElapsed(long totalSeconds) {
+        return String.format(Locale.US, "%02d:%02d:%02d",
+                totalSeconds / 3600, (totalSeconds % 3600) / 60, totalSeconds % 60);
+    }
+
     private void onFinished() {
         running = false;
         startButton.setEnabled(true);
         stopButton.setEnabled(false);
+        main.removeCallbacks(autoStopRunnable);
         long elapsed = (System.currentTimeMillis() - startTimeMs) / 1000;
-        String elapsedStr = String.format(Locale.US, "%02d:%02d", elapsed / 60, elapsed % 60);
+        String elapsedStr = formatElapsed(elapsed);
         int exitCode = runner.lastExitCode();
         boolean killedBySignal = exitCode >= 129 && exitCode <= 192;
         if (startFailure != null) {
+            statusText.setTextColor(defaultStatusColor);
             statusText.setText("Failed to start 启动失败: " + startFailure);
         } else if (killedBySignal && !userStopRequested) {
             int signal = exitCode - 128;
+            statusText.setTextColor(defaultStatusColor);
             statusText.setText(String.format(Locale.US,
                     "Killed by OS (signal %d), elapsed %s — device sandbox policy may not "
                             + "support this binary.\n被系统终止（信号 %d），已测试时间 %s"
                             + "——设备沙箱策略可能不支持此二进制文件。",
                     signal, elapsedStr, signal, elapsedStr));
         } else if (failureSeen) {
+            statusText.setTextColor(FAIL_COLOR);
             statusText.setText(String.format(Locale.US,
                     "FAILED 测试失败，已测试时间 %s，请查看日志 / see log below, elapsed %s",
                     elapsedStr, elapsedStr));
         } else {
+            statusText.setTextColor(PASS_COLOR);
             statusText.setText(String.format(Locale.US,
                     "PASSED 测试完成，已测试时间 %s / no errors detected, elapsed %s",
                     elapsedStr, elapsedStr));
