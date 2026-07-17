@@ -56,6 +56,13 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
         return null;
     }
 
+    /**
+     * Called with false when Start is pressed (disable extra controls while
+     * running) and true when the test finishes (re-enable them). Default: no-op.
+     */
+    protected void setExtraControlsEnabled(boolean enabled) {
+    }
+
     private final NativeProcessRunner runner = new NativeProcessRunner();
     private final Deque<String> lastLines = new ArrayDeque<>();
     private final Object logBufferLock = new Object();
@@ -124,6 +131,7 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
         startTimeMs = System.currentTimeMillis();
         startButton.setEnabled(false);
         stopButton.setEnabled(true);
+        setExtraControlsEnabled(false);
         statusText.setTextColor(defaultStatusColor);
         logText.setText("");
         statusText.setText("Running... 运行中");
@@ -196,6 +204,7 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
         running = false;
         startButton.setEnabled(true);
         stopButton.setEnabled(false);
+        setExtraControlsEnabled(true);
         main.removeCallbacks(autoStopRunnable);
         long elapsed = (System.currentTimeMillis() - startTimeMs) / 1000;
         String elapsedStr = formatElapsed(elapsed);

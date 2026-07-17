@@ -48,6 +48,13 @@ public class MemtesterActivity extends NativeToolTestActivity {
     }
 
     @Override
+    protected void setExtraControlsEnabled(boolean enabled) {
+        quarterTotalRadio.setEnabled(enabled);
+        avail80Radio.setEnabled(enabled);
+        durationMinutesInput.setEnabled(enabled);
+    }
+
+    @Override
     protected String soName() {
         return "libmemtester.so";
     }
