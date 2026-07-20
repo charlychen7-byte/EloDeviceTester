@@ -90,7 +90,7 @@ final class EthernetLinkInfo {
         if (speedMbps != null && speedMbps > 0) {
             sb.append(speedMbps).append(" Mbps");
         }
-        if (duplex != null && !duplex.isEmpty()) {
+        if ("full".equalsIgnoreCase(duplex) || "half".equalsIgnoreCase(duplex)) {
             if (sb.length() > 0) sb.append(", ");
             sb.append("full".equalsIgnoreCase(duplex) ? "Full Duplex" : "Half Duplex");
         }
