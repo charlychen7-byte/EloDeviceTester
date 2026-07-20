@@ -33,10 +33,13 @@ not just at app-launch time like other modules' static hardware checks.
    `HardwareDetector` check), because the adapter can be plugged in after
    the grid renders. Real-time detection happens inside the module's own
    page instead.
-5. **Link speed/duplex retrieval**: best-effort only. Try reflection on
-   `android.net.EthernetManager` first, fall back to reading
-   `/sys/class/net/<iface>/speed` and `/duplex`; if both fail, display
-   "不可获取 / Not available" — never error or crash on this field.
+5. **Link speed/duplex retrieval**: best-effort only, via
+   `/sys/class/net/<iface>/speed` and `/duplex`. (`android.net.EthernetManager`
+   reflection was considered and dropped: no version of that API — hidden
+   or public — actually exposes PHY link speed/duplex, so a reflection
+   attempt there would only be dead code that always falls through; sysfs
+   is the one mechanism that actually works.) If the sysfs read fails,
+   display "不可获取 / Not available" — never error or crash on this field.
 
 ## Architecture
 
@@ -78,10 +81,9 @@ Single page, two sections.
 - Info block (`addInfo` TextView): IPv4/IPv6 address + prefix length,
   gateway, DNS servers — read from the active Ethernet `Network`'s
   `LinkProperties`.
-- Link speed / duplex mode: reflection on `EthernetManager` first, then
-  `/sys/class/net/<iface>/speed` + `/duplex` fallback (interface name from
-  `LinkProperties.getInterfaceName()`). Displays "不可获取 / Not available"
-  if both attempts fail.
+- Link speed / duplex mode: read `/sys/class/net/<iface>/speed` and
+  `/duplex` (interface name from `LinkProperties.getInterfaceName()`).
+  Displays "不可获取 / Not available" if the read fails.
 
 ### Section 2 — "连接性压力测试 / Connectivity Stress Test"
 
