@@ -45,7 +45,7 @@ public enum TestModule {
     MSR("MSR / 刷卡器", "💳", MsrActivity.class, HardwareDetector.Feature.ALWAYS),
     SERIAL_IO("Serial I/O / 序口外设", "🖨️", SerialActivity.class, HardwareDetector.Feature.ALWAYS),
     DISPLAY_EXT("Display Ext / 双屏网络", "📺", DisplayExtActivity.class, HardwareDetector.Feature.ALWAYS),
-    ETHERNET("Ethernet / 有线网络", "🖧", EthernetActivity.class, HardwareDetector.Feature.ALWAYS),
+    ETHERNET("Ethernet / 有线网络", "🔗", EthernetActivity.class, HardwareDetector.Feature.ALWAYS),
     CELLULAR("Cellular / 蜂窝网络", "📡", CellularActivity.class, HardwareDetector.Feature.CELLULAR),
     USB_OTG("USB/OTG", "🔌", UsbOtgActivity.class, HardwareDetector.Feature.ALWAYS);
 
