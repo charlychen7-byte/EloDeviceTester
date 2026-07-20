@@ -2,7 +2,11 @@ package com.elotouch.devicetester.modules.ddr;
 
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.view.View;
+import android.view.ViewGroup;
 import android.widget.Button;
+import android.widget.LinearLayout;
+import android.widget.ScrollView;
 import android.widget.TextView;
 
 import com.elotouch.devicetester.core.BaseTestActivity;
@@ -70,6 +74,7 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
     private boolean uiFlushScheduled;
 
     private TextView statusText;
+    private ScrollView logScroll;
     private TextView logText;
     private Button startButton;
     private Button stopButton;
@@ -105,10 +110,21 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
         startButton = addButton("Start / 开始", this::start);
         stopButton = addButton("Stop / 停止", this::stop);
         stopButton.setEnabled(false);
-        logText = addInfo("");
+        logText = new TextView(this);
+        logText.setTextSize(15);
+        logText.setLineSpacing(dp(2), 1f);
         logText.setTypeface(Typeface.MONOSPACE);
         logText.setBackgroundColor(Color.BLACK);
         logText.setTextColor(Color.WHITE);
+
+        logScroll = new ScrollView(this);
+        logScroll.addView(logText, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams logScrollParams = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT, dp(240));
+        logScrollParams.topMargin = dp(6);
+        logScroll.setLayoutParams(logScrollParams);
+        content.addView(logScroll);
 
         if (!NativeProcessRunner.isArm64Supported()) {
             startButton.setEnabled(false);
@@ -182,12 +198,13 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
             uiFlushScheduled = false;
         }
         for (String l : toAppend) {
-            if (lastLines.size() >= 10) lastLines.removeFirst();
+            if (lastLines.size() >= 200) lastLines.removeFirst();
             lastLines.addLast(truncateForDisplay(l));
         }
         StringBuilder sb = new StringBuilder();
         for (String l : lastLines) sb.append(l).append('\n');
         logText.setText(sb.toString());
+        logScroll.post(() -> logScroll.fullScroll(View.FOCUS_DOWN));
     }
 
     private static String truncateForDisplay(String line) {
