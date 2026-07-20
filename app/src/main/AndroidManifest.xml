@@ -106,6 +106,7 @@
         <activity android:name=".modules.serial.SerialActivity" />
         <activity android:name=".modules.displayext.DisplayExtActivity" />
         <activity android:name=".modules.ethernet.EthernetActivity" />
+        <activity android:name=".modules.ethernet.IperfActivity" />
         <activity android:name=".modules.cellular.CellularActivity" />
         <activity android:name=".modules.usbotg.UsbOtgActivity" />
     </application>

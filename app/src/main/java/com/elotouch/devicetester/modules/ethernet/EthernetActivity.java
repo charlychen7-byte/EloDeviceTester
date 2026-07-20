@@ -1,6 +1,7 @@
 package com.elotouch.devicetester.modules.ethernet;
 
 import android.content.Context;
+import android.content.Intent;
 import android.net.ConnectivityManager;
 import android.net.LinkProperties;
 import android.net.Network;
@@ -96,6 +97,13 @@ public class EthernetActivity extends BaseTestActivity {
         stopButton = addButton("Stop / 停止", this::stopStressTest);
         startButton.setEnabled(false);
         stopButton.setEnabled(false);
+
+        addSectionTitle("iperf3 吞吐测试 / iperf3 Throughput Test");
+        addInfo("Runs the bundled iperf3 client against a server you specify, measuring "
+                + "download/upload throughput.\n"
+                + "运行内置 iperf3 客户端，针对指定服务器测量下载/上传吞吐量。");
+        addButton("Enter Test / 进入测试",
+                () -> startActivity(new Intent(this, IperfActivity.class)));
     }
 
     @Override
