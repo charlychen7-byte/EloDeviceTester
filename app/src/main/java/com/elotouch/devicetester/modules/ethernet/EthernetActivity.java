@@ -230,8 +230,9 @@ public class EthernetActivity extends BaseTestActivity {
     }
 
     private PingResult pingOnce(String host) {
+        Process process = null;
         try {
-            Process process = new ProcessBuilder("/system/bin/ping", "-c", "1", "-W", "1", host)
+            process = new ProcessBuilder("/system/bin/ping", "-c", "1", "-W", "1", host)
                     .redirectErrorStream(true)
                     .start();
             StringBuilder output = new StringBuilder();
@@ -252,6 +253,10 @@ public class EthernetActivity extends BaseTestActivity {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             return new PingResult(false, Double.NaN);
+        } finally {
+            if (process != null) {
+                process.destroy();
+            }
         }
     }
 
@@ -280,8 +285,10 @@ public class EthernetActivity extends BaseTestActivity {
         stopButton.setEnabled(false);
         if (ethernetLost) {
             resultText.setText("设备已断开 / Device disconnected");
+            startButton.setEnabled(false);
+        } else {
+            updateStartButtonAvailability();
         }
-        updateStartButtonAvailability();
     }
 
     private static final class PingResult {
