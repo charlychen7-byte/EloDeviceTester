@@ -33,10 +33,12 @@ public class DdrActivity extends BaseTestActivity {
     @Override
     protected void buildUi() {
         addSectionTitle("Capacity & Info / 容量与信息");
+        
         infoText = addInfo("");
         refreshInfo();
         addButton("Refresh Info / 刷新内存信息", this::refreshInfo);
 
+        /*
         addSectionTitle("Read/Write Bandwidth (relative) / 读写带宽（相对参考值）");
         bandwidthText = addInfo("Tap to start. 点击开始测试。");
         addButton("Start Bandwidth Test / 开始带宽测试", this::runBandwidth);
@@ -50,8 +52,9 @@ public class DdrActivity extends BaseTestActivity {
             releaseBlocks();
             ui(() -> stressText.setText("Stopped and memory freed. 已停止并释放内存。"));
         });
+         */
 
-        addSectionTitle("Memtester (native tool 原生工具)");
+        addSectionTitle("Memtester Stress Test");
         addInfo("Runs the open-source memtester binary against ~1/4 of total RAM "
                 + "(capped at 80% of available RAM), looping forever until stopped.\n"
                 + "运行开源 memtester 工具，测试容量约为总内存的 1/4（不超过可用内存的 80%），"
@@ -59,7 +62,7 @@ public class DdrActivity extends BaseTestActivity {
         addButton("Enter Test / 进入测试",
                 () -> startActivity(new Intent(this, MemtesterActivity.class)));
 
-        addSectionTitle("QMESA (native tool 原生工具)");
+        addSectionTitle("QMESA Stress Test");
         addInfo("Runs the vendor QMESA stress tool with an 8-16MB working set across "
                 + "4 threads, for up to ~2.7 hours or until stopped.\n"
                 + "运行厂商 QMESA 压力测试工具（8-16MB 工作集，4 线程），最长约 2.7 小时或手动停止。");
@@ -71,11 +74,10 @@ public class DdrActivity extends BaseTestActivity {
         ActivityManager am = (ActivityManager) getSystemService(Context.ACTIVITY_SERVICE);
         ActivityManager.MemoryInfo mi = new ActivityManager.MemoryInfo();
         am.getMemoryInfo(mi);
-        long maxHeap = Runtime.getRuntime().maxMemory();
         infoText.setText(String.format(Locale.US,
                 "Total RAM 总运行内存：%s\nAvailable RAM 可用内存：%s\n"
-                        + "Low-memory threshold 低内存阈值：%s\nPer-process heap 单进程堆上限：%s",
-                fmt(mi.totalMem), fmt(mi.availMem), fmt(mi.threshold), fmt(maxHeap)));
+                        + "Low-memory threshold 低内存阈值：%s",
+                fmt(mi.totalMem), fmt(mi.availMem), fmt(mi.threshold)));
     }
 
     private void runBandwidth() {

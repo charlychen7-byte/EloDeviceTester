@@ -18,7 +18,7 @@ import java.util.Random;
  */
 public class StorageActivity extends BaseTestActivity {
 
-    private static final int FILE_MB = 50;
+    private static final int FILE_MB = 500;
 
     private TextView infoText;
     private TextView speedText;
