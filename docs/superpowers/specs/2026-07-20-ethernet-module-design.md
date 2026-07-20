@@ -47,13 +47,13 @@ not just at app-launch time like other modules' static hardware checks.
   `core.BaseTestActivity`, matching the bilingual EN/中文 label convention
   used by `modules/wifibt/WifiBtActivity.java` and the Start/Stop pattern
   used by `modules/ddr/NativeToolTestActivity.java`.
-- `core/HardwareDetector.java` gains a new helper method,
-  `hasEthernetTransport(Context)`, checking
-  `ConnectivityManager.getAllNetworks()` / `getNetworkCapabilities()` for
-  `NetworkCapabilities.TRANSPORT_ETHERNET`. This is used only *inside*
-  `EthernetActivity` for its own real-time UI state — **not** added as a
-  new `HardwareDetector.Feature` enum value, and **not** used to gate the
-  Level-1 grid cell (per decision 4).
+- `core/HardwareDetector.java` is **not** modified — no new `Feature` enum
+  value is added, and the Level-1 grid cell is not gated (per decision 4).
+  Real-time Ethernet presence detection lives entirely inside
+  `EthernetActivity` via a `ConnectivityManager.NetworkCallback`: since
+  `registerNetworkCallback` fires `onAvailable()` immediately for any
+  network that already matches the request at registration time, a
+  separate synchronous "does Ethernet exist" check would be redundant.
 - `core/TestModule.java` gains one new enum entry:
   `ETHERNET("Ethernet / 有线网络", "🔌", EthernetActivity.class, ...)`.
   Since the tile is always enabled, the module's `Feature` argument is
