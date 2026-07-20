@@ -54,6 +54,7 @@
     <uses-feature android:name="android.hardware.sensor.proximity" android:required="false" />
     <uses-feature android:name="android.hardware.usb.host" android:required="false" />
     <uses-feature android:name="android.hardware.telephony" android:required="false" />
+    <uses-feature android:name="android.hardware.ethernet" android:required="false" />
 
     <application
         android:allowBackup="true"
@@ -104,6 +105,7 @@
         <activity android:name=".modules.msr.MsrActivity" />
         <activity android:name=".modules.serial.SerialActivity" />
         <activity android:name=".modules.displayext.DisplayExtActivity" />
+        <activity android:name=".modules.ethernet.EthernetActivity" />
         <activity android:name=".modules.cellular.CellularActivity" />
         <activity android:name=".modules.usbotg.UsbOtgActivity" />
     </application>
