@@ -102,6 +102,9 @@ public class IperfActivity extends NativeToolTestActivity {
         args.add(String.valueOf(interval));
         args.add("-w");
         args.add(window + "M");
+        // Without this, iperf3's stdout is fully buffered (not a tty), so the log
+        // stays empty until the process exits and dumps everything at once.
+        args.add("--forceflush");
         if (download) {
             args.add("-R");
         }
