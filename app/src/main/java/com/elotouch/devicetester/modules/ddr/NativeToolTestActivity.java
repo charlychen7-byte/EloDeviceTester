@@ -2,6 +2,7 @@ package com.elotouch.devicetester.modules.ddr;
 
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
@@ -124,6 +125,15 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
                 LinearLayout.LayoutParams.MATCH_PARENT, dp(240));
         logScrollParams.topMargin = dp(6);
         logScroll.setLayoutParams(logScrollParams);
+        // The page itself is one big ScrollView (BaseTestActivity.onCreate()), so this
+        // same-axis nested ScrollView needs to claim touch priority itself — otherwise
+        // the outer page ScrollView intercepts the drag before the log box ever gets it.
+        logScroll.setOnTouchListener((v, event) -> {
+            if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                v.getParent().requestDisallowInterceptTouchEvent(true);
+            }
+            return false;
+        });
         content.addView(logScroll);
 
         if (!NativeProcessRunner.isArm64Supported()) {
