@@ -16,6 +16,15 @@ public class TouchActivity extends BaseTestActivity {
 
     @Override
     protected void buildUi() {
+        addSectionTitle("Elo Draw / 触控绘图");
+        addInfo("Full EloDraw touch tool: multi-touch line/point drawing, down/up markers, "
+                + "grid dead-zone counting, live touch-rate & coordinate readout, and screenshot. "
+                + "Long-press hides the buttons; Back to exit.\n"
+                + "EloDraw 触控绘图工具：多点画线/画点、按下与抬起标记、网格死角计数、"
+                + "实时报点率与坐标显示、截图。长按隐藏按钮，返回键退出。");
+        addButton("Start Elo Draw / 开始触控绘图", () ->
+                startActivity(new Intent(this, EloDrawActivity.class)));
+
         addSectionTitle("Multi-touch / 多点触控");
         addInfo("Press and drag with multiple fingers; shows live trails and touch count. "
                 + "Back to exit.\n多指同时按压并划线，实时显示触控轨迹与触点数。返回键退出。");
