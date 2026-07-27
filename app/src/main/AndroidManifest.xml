@@ -36,6 +36,10 @@
     <!-- Cellular / Telephony -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
+    <!-- Screenshot save to public Pictures (Elo Draw); API 29+ uses MediaStore (no permission) -->
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
+        android:maxSdkVersion="28" />
+
     <!-- Hardware features: all optional so the app installs on any device.
          Actual presence is probed at runtime (HardwareDetector). -->
     <uses-feature android:name="android.hardware.nfc" android:required="false" />
