@@ -20,6 +20,13 @@ public class DisplayActivity extends BaseTestActivity {
 
     @Override
     protected void buildUi() {
+        addSectionTitle("Elo Color Test Pattern");
+        addInfo("Elo standard color / grayscale test patterns shown as a thumbnail "
+                + "gallery; tap any pattern to view fullscreen.\n"
+                + "Elo 标准色彩 / 灰阶测试图集，以缩略图展示，点击任意图案全屏显示。");
+        addButton("Open Elo Color Test Pattern / 打开 Elo 色彩测试图", () ->
+                startActivity(new Intent(this, EloColorPatternActivity.class)));
+
         addSectionTitle("Dead Pixel & Solid Color / 坏点与纯色");
         addInfo("Fullscreen solid colors to spot dark/bright pixels and backlight bleed. "
                 + "Tap to switch color, Back to exit.\n"
