@@ -99,6 +99,9 @@
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.touch.TouchSamplingActivity"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
+        <activity android:name=".modules.touch.EloDrawActivity"
+            android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
+        <activity android:name=".modules.touch.EloDrawSettingsActivity" />
         <activity android:name=".modules.audio.AudioActivity" />
         <activity android:name=".modules.camera.CameraActivity" />
         <activity android:name=".modules.wifibt.WifiBtActivity" />
