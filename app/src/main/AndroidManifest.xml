@@ -79,6 +79,8 @@
         <activity android:name=".modules.gps.GpsActivity" />
         <activity android:name=".modules.vibrator.VibratorActivity" />
         <activity android:name=".modules.display.DisplayActivity" />
+        <activity android:name=".modules.display.EloColorPatternViewerActivity"
+            android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.display.ColorTestActivity"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.display.GrayscaleActivity"
