@@ -57,6 +57,7 @@ public class EloDrawActivity extends ImmersiveActivity implements EloDrawView.Li
     private TextView tvHint;
     private LinearLayout buttonBar;
     private boolean controlsHidden = false;
+    private ToneGenerator toneGen;
 
     // Settings state (mirrors EloDraw defaults).
     private boolean drawLine = true;
@@ -228,7 +229,9 @@ public class EloDrawActivity extends ImmersiveActivity implements EloDrawView.Li
                 msg = "Screenshot failed: " + ex.getMessage();
             }
             final String finalMsg = msg;
-            runOnUiThread(() -> showMessage("Screenshot", finalMsg));
+            runOnUiThread(() -> {
+                if (!isFinishing() && !isDestroyed()) showMessage("Screenshot", finalMsg);
+            });
         }).start();
     }
 
@@ -242,8 +245,10 @@ public class EloDrawActivity extends ImmersiveActivity implements EloDrawView.Li
 
     private void beep() {
         try {
-            new ToneGenerator(AudioManager.STREAM_SYSTEM, 80)
-                    .startTone(ToneGenerator.TONE_PROP_BEEP, 150);
+            if (toneGen == null) {
+                toneGen = new ToneGenerator(AudioManager.STREAM_SYSTEM, 80);
+            }
+            toneGen.startTone(ToneGenerator.TONE_PROP_BEEP, 150);
         } catch (Exception ignored) {
         }
     }
@@ -287,5 +292,14 @@ public class EloDrawActivity extends ImmersiveActivity implements EloDrawView.Li
         tvHint.setVisibility(vis);
         tvTouchRate.setVisibility(
                 controlsHidden ? View.INVISIBLE : (gridTest ? View.INVISIBLE : View.VISIBLE));
+    }
+
+    @Override
+    protected void onDestroy() {
+        if (toneGen != null) {
+            toneGen.release();
+            toneGen = null;
+        }
+        super.onDestroy();
     }
 }
