@@ -68,7 +68,7 @@ Two-level navigation (PRD §2):
 `battery` · `vibrator` · `camera` (CameraX) · `audio` · `gps` · `nfc` ·
 `wifibt` · `sensors` · `barcode` · `msr` · `serial` · `displayext` ·
 `cellular` · `ping` (+ `PingTestActivity`) · `stability` · `ethernet` (+ `IperfActivity`, also a
-top-level grid module) · `usbotg`
+top-level grid module) · `usbotg` · `cashdrawer`
 
 ## Known device-dependent / best-effort items
 
@@ -84,6 +84,13 @@ erroring (see PRD "实现说明" notes):
 - **System Stability temperature** — battery temperature comes from the sticky
   `ACTION_BATTERY_CHANGED`; the CPU figure needs a readable
   `/sys/class/thermal/thermal_zone*`, which many ROMs deny → "不可获取".
+- **Cash Drawer** — drives the Elo RJ12 controller board (USB VID `0x1A86` /
+  PID `0xFE0C`) by claiming its CDC-data interface and writing 8-byte frames
+  `38 BE EF <cmd> <p1> <p2> <p3> 0D` to the bulk OUT endpoint. No CDC
+  line-coding is set first — that matches the reference Cash Drawer Demo, whose
+  baud-rate setup is a separate unrelated control. The board is a pluggable
+  peripheral, so presence is detected live on the page; the grid cell is only
+  greyed out on devices without USB host support.
 - **CPU info / frequency** — read from `/proc/cpuinfo` and
   `/sys/devices/system/cpu/*/cpufreq/*`; hardened ROMs deny either, so each value
   degrades to "不可获取 / Not available" independently.

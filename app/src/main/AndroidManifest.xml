@@ -180,5 +180,7 @@
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.usbotg.UsbOtgActivity"
             android:screenOrientation="nosensor" />
+        <activity android:name=".modules.cashdrawer.CashDrawerActivity"
+            android:screenOrientation="nosensor" />
     </application>
 </manifest>

@@ -6,6 +6,7 @@ import com.elotouch.devicetester.modules.audio.AudioActivity;
 import com.elotouch.devicetester.modules.barcode.BarcodeActivity;
 import com.elotouch.devicetester.modules.battery.BatteryActivity;
 import com.elotouch.devicetester.modules.camera.CameraActivity;
+import com.elotouch.devicetester.modules.cashdrawer.CashDrawerActivity;
 import com.elotouch.devicetester.modules.cellular.CellularActivity;
 import com.elotouch.devicetester.modules.cpu.CpuActivity;
 import com.elotouch.devicetester.modules.ddr.DdrActivity;
@@ -51,13 +52,15 @@ public enum TestModule {
     //SERIAL_IO("Serial I/O / 序口外设", "🖨️", SerialActivity.class, HardwareDetector.Feature.ALWAYS),
     //DISPLAY_EXT("Display Ext / 双屏网络", "📺", DisplayExtActivity.class, HardwareDetector.Feature.ALWAYS),
     //ETHERNET("Ethernet / 有线网络", "🔗", EthernetActivity.class, HardwareDetector.Feature.ALWAYS),
-    CELLULAR("Cellular / 蜂窝网络", "📡", CellularActivity.class, HardwareDetector.Feature.CELLULAR),
+    //CELLULAR("Cellular / 蜂窝网络", "📡", CellularActivity.class, HardwareDetector.Feature.CELLULAR),
     PING("Ping / 连通性", "🌐", PingActivity.class, HardwareDetector.Feature.ALWAYS),
     // Single-test module: goes straight to the iperf3 test page, which already
     // carries its own description, parameters and Start/Stop.
     IPERF("iperf3 / 网络吞吐", "📈", IperfActivity.class, HardwareDetector.Feature.ALWAYS),
     STABILITY("System Stability / 系统稳定性", "🔥", StabilityActivity.class,
-            HardwareDetector.Feature.ALWAYS);
+            HardwareDetector.Feature.ALWAYS),
+    CASH_DRAWER("Cash Drawer / 钱箱", "💰", CashDrawerActivity.class,
+            HardwareDetector.Feature.USB_HOST);
     //USB_OTG("USB/OTG", "🔌", UsbOtgActivity.class, HardwareDetector.Feature.ALWAYS)
 
     public final String title;
