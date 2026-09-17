@@ -36,6 +36,14 @@
     <!-- Cellular / Telephony -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
 
+    <!-- Battery charge/discharge logging: keeps recording with the screen off -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE"
+        tools:targetApi="34" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"
+        tools:targetApi="33" />
+
     <!-- Screenshot save to public Pictures (Elo Draw); API 29+ uses MediaStore (no permission) -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
@@ -68,56 +76,109 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.EloDeviceTester">
 
-        <activity android:name=".MainActivity" android:exported="true">
+        <activity android:name=".MainActivity"
+            android:screenOrientation="nosensor" android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
-        <activity android:name=".modules.ddr.DdrActivity" />
-        <activity android:name=".modules.ddr.MemtesterActivity" />
-        <activity android:name=".modules.ddr.QmesaActivity" />
-        <activity android:name=".modules.storage.StorageActivity" />
-        <activity android:name=".modules.nfc.NfcActivity" android:launchMode="singleTop" />
-        <activity android:name=".modules.gps.GpsActivity" />
-        <activity android:name=".modules.vibrator.VibratorActivity" />
-        <activity android:name=".modules.display.DisplayActivity" />
+        <activity android:name=".modules.cpu.CpuActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.ddr.DdrActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.ddr.MemtesterActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.ddr.QmesaActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.storage.StorageActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.nfc.NfcActivity"
+            android:screenOrientation="nosensor" android:launchMode="singleTop" />
+        <activity android:name=".modules.gps.GpsActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.vibrator.VibratorActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.display.DisplayActivity"
+            android:screenOrientation="nosensor" />
         <activity android:name=".modules.display.EloColorPatternViewerActivity"
+            android:screenOrientation="nosensor"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
-        <activity android:name=".modules.display.EloColorPatternActivity" />
+        <activity android:name=".modules.display.EloColorPatternActivity"
+            android:screenOrientation="nosensor" />
         <activity android:name=".modules.display.ColorTestActivity"
+            android:screenOrientation="nosensor"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.display.GrayscaleActivity"
+            android:screenOrientation="nosensor"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.display.ColorAccuracyActivity"
+            android:screenOrientation="nosensor"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.display.MuraActivity"
+            android:screenOrientation="nosensor"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.display.TouchAlignmentActivity"
+            android:screenOrientation="nosensor"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
-        <activity android:name=".modules.touch.TouchActivity" />
+        <activity android:name=".modules.touch.TouchActivity"
+            android:screenOrientation="nosensor" />
         <activity android:name=".modules.touch.MultiTouchActivity"
+            android:screenOrientation="nosensor"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.touch.TouchGridActivity"
+            android:screenOrientation="nosensor"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.touch.TouchSamplingActivity"
+            android:screenOrientation="nosensor"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.touch.EloDrawActivity"
+            android:screenOrientation="nosensor"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
-        <activity android:name=".modules.touch.EloDrawSettingsActivity" />
-        <activity android:name=".modules.audio.AudioActivity" />
-        <activity android:name=".modules.camera.CameraActivity" />
-        <activity android:name=".modules.wifibt.WifiBtActivity" />
-        <activity android:name=".modules.sensors.SensorsActivity" />
-        <activity android:name=".modules.battery.BatteryActivity" />
-        <activity android:name=".modules.barcode.BarcodeActivity" />
-        <activity android:name=".modules.msr.MsrActivity" />
-        <activity android:name=".modules.serial.SerialActivity" />
-        <activity android:name=".modules.displayext.DisplayExtActivity" />
-        <activity android:name=".modules.ethernet.EthernetActivity" />
-        <activity android:name=".modules.ethernet.IperfActivity" />
-        <activity android:name=".modules.cellular.CellularActivity" />
-        <activity android:name=".modules.usbotg.UsbOtgActivity" />
+        <activity android:name=".modules.touch.EloDrawSettingsActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.audio.AudioActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.camera.CameraActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.wifibt.WifiBtActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.sensors.SensorsActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.battery.BatteryActivity"
+            android:screenOrientation="nosensor" />
+        <!-- Charge/discharge logger: diagnostic sampling that has to survive the
+             screen going off, which no other foreground service type describes. -->
+        <service
+            android:name=".modules.battery.BatteryLogService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="battery charge/discharge diagnostic logging for after-sales inspection" />
+        </service>
+        <activity android:name=".modules.barcode.BarcodeActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.msr.MsrActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.serial.SerialActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.displayext.DisplayExtActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.ethernet.EthernetActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.ethernet.IperfActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.cellular.CellularActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.stability.StabilityActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.ping.PingActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.ping.PingTestActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.usbotg.UsbOtgActivity"
+            android:screenOrientation="nosensor" />
     </application>
 </manifest>

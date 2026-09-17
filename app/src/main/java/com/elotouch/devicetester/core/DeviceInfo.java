@@ -8,10 +8,7 @@ public final class DeviceInfo {
     private DeviceInfo() {}
 
     public static String banner() {
-        String abi = Build.SUPPORTED_ABIS != null && Build.SUPPORTED_ABIS.length > 0
-                ? Build.SUPPORTED_ABIS[0] : "unknown";
         return "Model 型号：" + Build.MANUFACTURER + " " + Build.MODEL + "\n"
-                + "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")\n"
-                + "CPU ABI 架构：" + abi;
+                + "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")";
     }
 }

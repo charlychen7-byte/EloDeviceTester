@@ -53,23 +53,47 @@ Two-level navigation (PRD §2):
   layout XML files. Module icons are emoji (no per-module drawables).
 - Long/high-load tests (DDR, Storage, ping) run on the executor and offer a
   stop button. Tests that grab exclusive hardware release it in `onStopTests()`.
+- Every Activity declares `android:screenOrientation="nosensor"`: the app is
+  locked to the device's natural orientation and ignores sensor rotation, so
+  display/touch tests always map to fixed screen edges. New Activities must
+  carry the same attribute.
 - Fullscreen tests (color, grayscale, multi-touch, touch-grid) extend
   `modules/display/ImmersiveActivity` and use the `Fullscreen` theme.
 
 ## Module map
 
-`ddr` · `storage` · `display` (+ `ColorTestActivity`, `GrayscaleActivity`,
+`cpu` · `ddr` · `storage` · `display` (+ `ColorTestActivity`, `GrayscaleActivity`,
 `ColorAccuracyActivity`, `MuraActivity`, `TouchAlignmentActivity`) ·
 `touch` (+ `MultiTouchActivity`, `TouchGridActivity`, `TouchSamplingActivity`) ·
 `battery` · `vibrator` · `camera` (CameraX) · `audio` · `gps` · `nfc` ·
 `wifibt` · `sensors` · `barcode` · `msr` · `serial` · `displayext` ·
-`cellular` · `usbotg`
+`cellular` · `ping` (+ `PingTestActivity`) · `stability` · `ethernet` (+ `IperfActivity`, also a
+top-level grid module) · `usbotg`
 
 ## Known device-dependent / best-effort items
 
 These are inherently unreliable across ROMs and degrade gracefully rather than
 erroring (see PRD "实现说明" notes):
 
+- **System Stability CPU/GPU load** — a full CPU load makes the UI sluggish, and the
+  GPU test draws a ~48k-triangle procedural teapot (`Teapot.java`, OpenGL ES 2.0)
+  with a deliberately expensive per-pixel shader; both are expected. The DDR working set is
+  capped at min(25% available RAM, 60% of remaining heap) and the EMMC file shrinks
+  to fit free space (skipped below 16MB), so absolute figures are not comparable
+  across devices — the test looks for verification errors, not benchmarks.
+- **System Stability temperature** — battery temperature comes from the sticky
+  `ACTION_BATTERY_CHANGED`; the CPU figure needs a readable
+  `/sys/class/thermal/thermal_zone*`, which many ROMs deny → "不可获取".
+- **CPU info / frequency** — read from `/proc/cpuinfo` and
+  `/sys/devices/system/cpu/*/cpufreq/*`; hardened ROMs deny either, so each value
+  degrades to "不可获取 / Not available" independently.
+- **Battery charge/discharge log** — recording runs in `BatteryLogService`, a
+  `specialUse` foreground service holding a PARTIAL_WAKE_LOCK, so it survives screen-off
+  and leaving the page. A 1-minute cadence rules out AlarmManager (exact-while-idle is
+  throttled to ~1 per 9 min in Doze). The wake lock keeps the CPU awake, which slightly
+  steepens a discharge curve. CSV goes to `getExternalFilesDir()/battery/` — no storage
+  permission, pullable with adb. POST_NOTIFICATIONS is requested lazily; if denied the
+  service still records, only the notification is hidden.
 - **Battery live current** — many ROMs return 0/unreadable → shown as "不支持".
 - **DDR bandwidth** — Java array copy is a *relative* figure, not physical bandwidth.
 - **DDR memtester / QMESA** — bundled prebuilt arm64-v8a native binaries, packaged as
