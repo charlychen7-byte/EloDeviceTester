@@ -44,6 +44,9 @@
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"
         tools:targetApi="33" />
 
+    <!-- Reboot stress test: the run has to pick itself back up after each boot -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
     <!-- Screenshot save to public Pictures (Elo Draw); API 29+ uses MediaStore (no permission) -->
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
@@ -182,5 +185,51 @@
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.cashdrawer.CashDrawerActivity"
             android:screenOrientation="nosensor" />
+
+        <!-- ===================== Reboot stress test ===================== -->
+        <activity android:name=".modules.reboot.RebootStressActivity"
+            android:screenOrientation="nosensor"
+            android:launchMode="singleTop" />
+
+        <!-- Device-admin component named by `dpm set-device-owner`. It is what
+             unlocks DevicePolicyManager.reboot() without root or a platform
+             signature. Exported and BIND_DEVICE_ADMIN-guarded as the platform
+             requires. -->
+        <receiver
+            android:name=".modules.reboot.RebootAdminReceiver"
+            android:permission="android.permission.BIND_DEVICE_ADMIN"
+            android:exported="true">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Resumes an armed run after every boot. -->
+        <receiver
+            android:name=".modules.reboot.RebootStressReceiver"
+            android:enabled="true"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.QUICKBOOT_POWERON" />
+                <action android:name="com.htc.intent.action.QUICKBOOT_POWERON" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Owns the reboot loop: records the boot, runs the checks, counts
+             down the dwell, triggers the next reboot. specialUse because no
+             other foreground service type describes a diagnostic run that
+             must outlive its Activity and the reboot itself. -->
+        <service
+            android:name=".modules.reboot.RebootStressService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="reboot stress diagnostic run that must survive device reboots for after-sales inspection" />
+        </service>
     </application>
 </manifest>

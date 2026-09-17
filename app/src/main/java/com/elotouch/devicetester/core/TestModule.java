@@ -18,6 +18,7 @@ import com.elotouch.devicetester.modules.gps.GpsActivity;
 import com.elotouch.devicetester.modules.msr.MsrActivity;
 import com.elotouch.devicetester.modules.nfc.NfcActivity;
 import com.elotouch.devicetester.modules.ping.PingActivity;
+import com.elotouch.devicetester.modules.reboot.RebootStressActivity;
 import com.elotouch.devicetester.modules.sensors.SensorsActivity;
 import com.elotouch.devicetester.modules.serial.SerialActivity;
 import com.elotouch.devicetester.modules.stability.StabilityActivity;
@@ -57,10 +58,16 @@ public enum TestModule {
     // Single-test module: goes straight to the iperf3 test page, which already
     // carries its own description, parameters and Start/Stop.
     IPERF("iperf3 / 网络吞吐", "📈", IperfActivity.class, HardwareDetector.Feature.ALWAYS),
+    CASH_DRAWER("Cash Drawer / 钱箱", "💰", CashDrawerActivity.class,
+            HardwareDetector.Feature.USB_HOST),
     STABILITY("System Stability / 系统稳定性", "🔥", StabilityActivity.class,
             HardwareDetector.Feature.ALWAYS),
-    CASH_DRAWER("Cash Drawer / 钱箱", "💰", CashDrawerActivity.class,
-            HardwareDetector.Feature.USB_HOST);
+    // Needs device-owner provisioning to reboot; the page says so and
+    // disables Start rather than the grid hiding the module, because whether
+    // provisioning happened is not a hardware fact.
+    REBOOT_STRESS("Reboot Stress / 重启压力", "🔁", RebootStressActivity.class,
+            HardwareDetector.Feature.ALWAYS);
+    ;
     //USB_OTG("USB/OTG", "🔌", UsbOtgActivity.class, HardwareDetector.Feature.ALWAYS)
 
     public final String title;

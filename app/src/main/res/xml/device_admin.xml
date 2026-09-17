@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Policy declaration for RebootAdminReceiver. The reboot stress test only
+     needs the device-owner status itself (which is what unlocks
+     DevicePolicyManager.reboot()), not any particular restriction, so no
+     policies are requested here. -->
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies />
+</device-admin>
