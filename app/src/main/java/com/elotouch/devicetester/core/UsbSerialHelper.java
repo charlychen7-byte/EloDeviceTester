@@ -57,10 +57,16 @@ public final class UsbSerialHelper {
             callback.onResult(true);
             return null;
         }
+        // FLAG_MUTABLE is required: UsbManager fills EXTRA_DEVICE and
+        // EXTRA_PERMISSION_GRANTED into this intent before broadcasting it.
+        // Targeting Android 14 (API 34) forbids a mutable PendingIntent built
+        // from an *implicit* intent, so setPackage() makes it explicit — the
+        // broadcast only ever comes back to us anyway.
         int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                 ? PendingIntent.FLAG_MUTABLE : 0;
-        PendingIntent pi = PendingIntent.getBroadcast(
-                context, 0, new Intent(ACTION_USB_PERMISSION), flags);
+        Intent permissionIntent = new Intent(ACTION_USB_PERMISSION)
+                .setPackage(context.getPackageName());
+        PendingIntent pi = PendingIntent.getBroadcast(context, 0, permissionIntent, flags);
 
         BroadcastReceiver[] holder = new BroadcastReceiver[1];
         holder[0] = new BroadcastReceiver() {
