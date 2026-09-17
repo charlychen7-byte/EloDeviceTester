@@ -36,7 +36,6 @@ public class CashDrawerActivity extends BaseTestActivity {
     private boolean awaitingPermission;
 
     private TextView connectionText;
-    private TextView versionText;
     private TextView powerText;
     private TextView drawerText;
 
@@ -52,14 +51,9 @@ public class CashDrawerActivity extends BaseTestActivity {
         controller = new CashDrawerController(this);
 
         addSectionTitle("Connection / 连接检测");
-        addInfo("Looks for the Elo cash-drawer controller board on USB "
-                + "(VID 0x1A86 / PID 0xFE0C), claims its CDC data interface and "
-                + "queries the MCU version to prove two-way communication.\n"
-                + "在 USB 上查找 Elo 钱箱控制板（VID 0x1A86 / PID 0xFE0C），占用其 CDC 数据接口，"
-                + "并发送 MCU 版本查询以验证双向通信。");
+        addInfo("Check cash-drawer connection");
         connectionText = addInfo("Not connected. 尚未连接。");
         defaultTextColor = connectionText.getCurrentTextColor();
-        versionText = addInfo("MCU version 版本：—");
         addButton("Detect & Connect / 检测并连接", this::connect);
         addButton("Disconnect / 断开连接", this::disconnect);
 
@@ -120,21 +114,9 @@ public class CashDrawerActivity extends BaseTestActivity {
                 controller.open(target);
                 String description = controller.describeConnection();
                 controller.send(CashDrawerController.CMD_MCU_VERSION);
-                String reply = controller.read(READ_TIMEOUT_MS);
                 ui(() -> {
                     connectionText.setTextColor(ContextCompat.getColor(this, R.color.ok));
                     connectionText.setText("Connected 已连接\n" + description);
-                    if (reply.isEmpty()) {
-                        versionText.setTextColor(ContextCompat.getColor(this, R.color.warn));
-                        versionText.setText("MCU version 版本：no reply 无回复\n"
-                                + "TX: " + CashDrawerController.spacedHex(
-                                        CashDrawerController.CMD_MCU_VERSION));
-                    } else {
-                        versionText.setTextColor(defaultTextColor);
-                        versionText.setText("MCU version 版本 (RX)：" + reply + "\n"
-                                + "TX: " + CashDrawerController.spacedHex(
-                                        CashDrawerController.CMD_MCU_VERSION));
-                    }
                 });
             } catch (Exception e) {
                 ui(() -> showError(connectionText, "Connect failed 连接失败：" + e.getMessage()));
@@ -146,8 +128,6 @@ public class CashDrawerActivity extends BaseTestActivity {
         controller.close();
         connectionText.setTextColor(defaultTextColor);
         connectionText.setText("Disconnected. 已断开连接。");
-        versionText.setTextColor(defaultTextColor);
-        versionText.setText("MCU version 版本：—");
     }
 
     // ---------------------------------------------------------------- commands
