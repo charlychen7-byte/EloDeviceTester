@@ -1,8 +1,12 @@
 package com.elotouch.devicetester.modules.cpu;
 
+import android.content.Context;
 import android.graphics.Typeface;
 import android.os.Build;
+import android.text.InputType;
+import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 
 import com.elotouch.devicetester.core.BaseTestActivity;
@@ -18,6 +22,11 @@ import java.util.Locale;
  * the loop is stoppable from the button at the bottom of the page. Values that
  * the kernel does not expose on this device render as "not available" instead
  * of failing the module.
+ *
+ * <p>The page also hosts the CPU load test: {@link CpuLoadTester} drives the
+ * cores to a typed-in percentage on its own daemon threads (the base executor
+ * is single-threaded and already busy with the refresh loop), and the load is
+ * released by the Stop button, by {@code onPause}, and by leaving the page.
  */
 public class CpuActivity extends BaseTestActivity {
 
@@ -25,6 +34,9 @@ public class CpuActivity extends BaseTestActivity {
     private static final String STOP_LABEL = "Stop refresh / 停止刷新";
     private static final String START_LABEL = "Start refresh / 开始刷新";
     private static final String NOT_AVAILABLE = "不可获取 / Not available";
+    private static final String LOAD_START_LABEL = "开始加载 / Start load";
+    private static final String LOAD_STOP_LABEL = "停止并释放 / Stop & release";
+    private static final int DEFAULT_TARGET_PERCENT = 50;
 
     private int coreCount;
 
@@ -32,6 +44,13 @@ public class CpuActivity extends BaseTestActivity {
     private TextView freqStatusText;
     private TextView freqText;
     private Button toggleButton;
+
+    private final CpuUsageSampler usageSampler = new CpuUsageSampler();
+    private final CpuLoadTester loadTester = new CpuLoadTester();
+    private TextView loadUsageText;
+    private TextView loadStatusText;
+    private EditText targetInput;
+    private Button loadButton;
 
     private volatile boolean refreshing;
     private volatile boolean infoDirty = true;
@@ -64,6 +83,26 @@ public class CpuActivity extends BaseTestActivity {
         freqText.setTypeface(Typeface.MONOSPACE);
 
         toggleButton = addButton(STOP_LABEL, this::toggleRefresh);
+
+        buildLoadUi();
+    }
+
+    private void buildLoadUi() {
+        addSectionTitle("负载测试 / CPU Load Test");
+        loadUsageText = addInfo(usageLine(CpuUsageSampler.UNKNOWN, true));
+        loadUsageText.setTextSize(18);
+        loadUsageText.setTypeface(Typeface.DEFAULT_BOLD);
+
+        addInfo("目标负载率 1-100 % / Target load, one busy thread per core ("
+                + loadTester.threadCount() + ")");
+        targetInput = new EditText(this);
+        targetInput.setInputType(InputType.TYPE_CLASS_NUMBER);
+        targetInput.setHint("1 - 100");
+        targetInput.setText(String.valueOf(DEFAULT_TARGET_PERCENT));
+        addView(targetInput);
+
+        loadButton = addButton(LOAD_START_LABEL, this::toggleLoad);
+        loadStatusText = addInfo("未运行 / Idle — CPU 未被本测试占用。");
     }
 
     // ------------------------------------------------------------- refreshing
@@ -72,6 +111,8 @@ public class CpuActivity extends BaseTestActivity {
     protected void onResume() {
         super.onResume();
         if (!userPaused) startRefresh();
+        // onPause released the load; put the controls back in their idle state.
+        if (!loadTester.isRunning()) showLoadStopped();
     }
 
     private void toggleRefresh() {
@@ -122,6 +163,10 @@ public class CpuActivity extends BaseTestActivity {
 
             final String freq = buildFreqText();
             ui(() -> freqText.setText(freq));
+
+            final double usage = usageSampler.sample();
+            final boolean systemWide = usageSampler.isSystemWide();
+            ui(() -> loadUsageText.setText(usageLine(usage, systemWide)));
 
             try {
                 Thread.sleep(REFRESH_INTERVAL_MS);
@@ -195,9 +240,87 @@ public class CpuActivity extends BaseTestActivity {
         return String.format(Locale.US, "%d", Math.round(kHz / 1000.0));
     }
 
+    // ------------------------------------------------------------- load test
+
+    private void toggleLoad() {
+        if (loadTester.isRunning()) {
+            stopLoad();
+        } else {
+            startLoad();
+        }
+    }
+
+    private void startLoad() {
+        Integer target = parseTarget();
+        if (target == null) {
+            toast("请输入 1-100 的目标负载率 / Enter a target between 1 and 100");
+            return;
+        }
+        hideKeyboard();
+        targetInput.setEnabled(false);
+        loadButton.setText(LOAD_STOP_LABEL);
+        loadStatusText.setText(String.format(Locale.US,
+                "运行中 Running · 目标 target %d%% · %d 线程 threads · 占空比 duty %d%%",
+                target, loadTester.threadCount(), target));
+        // Without the live figure the test is unverifiable, so make sure the
+        // 1 Hz loop that feeds it is running even if the user had paused it.
+        userPaused = false;
+        startRefresh();
+        loadTester.start(target, this::onLoadSample);
+    }
+
+    private void stopLoad() {
+        loadTester.stop();
+        showLoadStopped();
+    }
+
+    private void showLoadStopped() {
+        loadButton.setText(LOAD_START_LABEL);
+        targetInput.setEnabled(true);
+        loadStatusText.setText("未运行 / Idle — CPU 未被本测试占用。");
+    }
+
+    /** Controller-thread callback: mirror the applied duty cycle into the status line. */
+    private void onLoadSample(double measuredPercent, boolean systemWide, int dutyPercent) {
+        final String status = String.format(Locale.US,
+                "运行中 Running · 目标 target %d%% · %d 线程 threads · 占空比 duty %d%%",
+                loadTester.targetPercent(), loadTester.threadCount(), dutyPercent);
+        ui(() -> {
+            if (loadTester.isRunning()) loadStatusText.setText(status);
+        });
+    }
+
+    /** Typed target, or {@code null} if it is blank / not within 1-100. */
+    private Integer parseTarget() {
+        String text = targetInput.getText().toString().trim();
+        if (text.isEmpty()) return null;
+        try {
+            int value = Integer.parseInt(text);
+            return (value >= 1 && value <= 100) ? value : null;
+        } catch (NumberFormatException e) {
+            return null;
+        }
+    }
+
+    private static String usageLine(double percent, boolean systemWide) {
+        if (percent == CpuUsageSampler.UNKNOWN) {
+            return "当前负载率 Current load：测量中… / measuring…";
+        }
+        return String.format(Locale.US, "当前负载率 Current load：%.1f%%", percent);
+    }
+
+    private void hideKeyboard() {
+        InputMethodManager imm =
+                (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+        if (imm != null) imm.hideSoftInputFromWindow(targetInput.getWindowToken(), 0);
+        targetInput.clearFocus();
+    }
+
     @Override
     protected void onStopTests() {
         refreshing = false;
         loopGeneration++;
+        // Leaving the page (or backgrounding it) must release the cores.
+        loadTester.stop();
     }
 }

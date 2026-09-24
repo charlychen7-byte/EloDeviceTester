@@ -94,6 +94,13 @@ erroring (see PRD "实现说明" notes):
 - **CPU info / frequency** — read from `/proc/cpuinfo` and
   `/sys/devices/system/cpu/*/cpufreq/*`; hardened ROMs deny either, so each value
   degrades to "不可获取 / Not available" independently.
+- **CPU load test** — `CpuLoadTester` duty-cycles one daemon thread per core over a
+  100 ms window and a controller thread nudges the duty cycle once a second toward the
+  typed-in target, so the reading converges on the target instead of stacking on top of
+  the device's existing load. The measured figure comes from `CpuUsageSampler`
+  (`/proc/stat`, falling back permanently to this process' own CPU time where SELinux
+  denies it — the UI labels which one it is). The load is released by the Stop button,
+  by `onPause`, and by leaving the page.
 - **Battery charge/discharge log** — recording runs in `BatteryLogService`, a
   `specialUse` foreground service holding a PARTIAL_WAKE_LOCK, so it survives screen-off
   and leaving the page. A 1-minute cadence rules out AlarmManager (exact-while-idle is
