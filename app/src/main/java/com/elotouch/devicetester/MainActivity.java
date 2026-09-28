@@ -30,7 +30,7 @@ public class MainActivity extends AppCompatActivity {
 
         // --- persistent device info banner ---
         TextView title = new TextView(this);
-        title.setText("Elo DeviceTester");
+        title.setText("Elo DeviceTester V1.0");
         title.setTextSize(20);
         title.setTypeface(Typeface.DEFAULT_BOLD);
         title.setTextColor(Color.WHITE);

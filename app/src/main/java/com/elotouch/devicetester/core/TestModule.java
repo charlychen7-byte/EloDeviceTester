@@ -35,15 +35,15 @@ import com.elotouch.devicetester.modules.wifibt.WifiBtActivity;
  * (see {@link HardwareDetector}).
  */
 public enum TestModule {
-    CPU("CPU / 处理器", "⚙️", CpuActivity.class, HardwareDetector.Feature.ALWAYS),
     DDR("DDR / 内存", "🧠", DdrActivity.class, HardwareDetector.Feature.ALWAYS),
     STORAGE("Storage / 存储", "💾", StorageActivity.class, HardwareDetector.Feature.ALWAYS),
+    CPU("CPU / 处理器", "⚙️", CpuActivity.class, HardwareDetector.Feature.ALWAYS),
+    BATTERY("Battery / 电池", "🔋", BatteryActivity.class, HardwareDetector.Feature.ALWAYS),
+    AUDIO("Audio / 音频", "🔊", AudioActivity.class, HardwareDetector.Feature.ALWAYS),
     DISPLAY("Display / 显示", "🖥️", DisplayActivity.class, HardwareDetector.Feature.ALWAYS),
     TOUCH("Touch / 触摸", "👆", TouchActivity.class, HardwareDetector.Feature.TOUCH),
-    BATTERY("Battery / 电池", "🔋", BatteryActivity.class, HardwareDetector.Feature.ALWAYS),
     VIBRATOR("Vibrator / 振动", "📳", VibratorActivity.class, HardwareDetector.Feature.VIBRATOR),
     CAMERA("Camera / 相机", "📷", CameraActivity.class, HardwareDetector.Feature.CAMERA),
-    AUDIO("Audio / 音频", "🔊", AudioActivity.class, HardwareDetector.Feature.ALWAYS),
     GPS("GPS / 定位", "🛰️", GpsActivity.class, HardwareDetector.Feature.GPS),
     NFC("NFC", "📇", NfcActivity.class, HardwareDetector.Feature.NFC),
     //WIFI_BT("Wi-Fi & BT", "📶", WifiBtActivity.class, HardwareDetector.Feature.WIFI),

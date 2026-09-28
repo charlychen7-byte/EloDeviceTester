@@ -114,7 +114,9 @@ erroring (see PRD "实现说明" notes):
   `jniLibs/arm64-v8a/lib*.so` with `packaging.jniLibs.useLegacyPackaging = true` in
   `app/build.gradle` so they're extracted to `nativeLibraryDir` and remain executable
   under API 29+ W^X restrictions (raw `assets/` + runtime `chmod` does NOT work on
-  this app's `targetSdk 34`).
+  this app's `targetSdk 34`). `libqmesa64.so` is a *static glibc* binary, so it is
+  binary-patched to stop calling `set_robust_list`, which Android's app seccomp
+  filter kills with SIGSYS — see `docs/vendor/qmesa-seccomp-patch.md`.
 - **Audio earpiece routing** & **secondary mic** — no standard API; approximate.
 - **Wi-Fi scan** — throttled by the system and needs location permission + services on.
 - **Barcode symbology** — wedge-mode scanners only transmit the decoded text,

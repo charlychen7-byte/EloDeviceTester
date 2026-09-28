@@ -53,6 +53,7 @@ public class RebootStressActivity extends BaseTestActivity {
     private EditText targetInput;
     private EditText dwellInput;
     private EditText bootLimitInput;
+    private CheckBox stopOnFailBox;
     private final Map<RebootChecks.Check, CheckBox> checkBoxes =
             new EnumMap<>(RebootChecks.Check.class);
     private Button startButton;
@@ -101,6 +102,11 @@ public class RebootStressActivity extends BaseTestActivity {
                 state.dwellSec(), RebootStressState.DEFAULT_DWELL_SEC);
         bootLimitInput = addNumberField("Boot time limit 开机耗时上限（秒）",
                 state.bootLimitSec(), RebootStressState.DEFAULT_BOOT_LIMIT_SEC);
+
+        stopOnFailBox = new CheckBox(this);
+        stopOnFailBox.setText("Stop on fail 失败时停止测试");
+        stopOnFailBox.setChecked(state.stopOnFail());
+        addView(stopOnFailBox);
 
         addSectionTitle("Per-boot checks 每轮自检项");
         EnumSet<RebootChecks.Check> restored = restoredChecks();
@@ -205,6 +211,7 @@ public class RebootStressActivity extends BaseTestActivity {
         if (bootLimitSec == null) return;
 
         final EnumSet<RebootChecks.Check> checks = selectedChecks();
+        final boolean stopOnFail = stopOnFailBox.isChecked();
 
         // The foreground notification carries the countdown and is the only
         // status the operator sees once the page is gone, so ask for
@@ -212,26 +219,27 @@ public class RebootStressActivity extends BaseTestActivity {
         // way — a suppressed notification does not stop the service.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             requirePermission(Manifest.permission.POST_NOTIFICATIONS,
-                    () -> beginRun(target, dwellSec, bootLimitSec, checks),
-                    () -> beginRun(target, dwellSec, bootLimitSec, checks));
+                    () -> beginRun(target, dwellSec, bootLimitSec, checks, stopOnFail),
+                    () -> beginRun(target, dwellSec, bootLimitSec, checks, stopOnFail));
         } else {
-            beginRun(target, dwellSec, bootLimitSec, checks);
+            beginRun(target, dwellSec, bootLimitSec, checks, stopOnFail);
         }
     }
 
     private void beginRun(int target, int dwellSec, int bootLimitSec,
-                          EnumSet<RebootChecks.Check> checks) {
+                          EnumSet<RebootChecks.Check> checks, boolean stopOnFail) {
         // File creation off the UI thread (PRD 5.5), then arm the run and hand
         // over to the service from the UI thread.
         runAsync(() -> {
             String logPath;
             try {
-                logPath = RebootStressLog.create(this, target, dwellSec, bootLimitSec, checks);
+                logPath = RebootStressLog.create(this, target, dwellSec, bootLimitSec, checks,
+                        stopOnFail);
             } catch (Exception e) {
                 ui(() -> toast("无法创建日志文件 / cannot create log file: " + e.getMessage()));
                 return;
             }
-            state.startRun(target, dwellSec, bootLimitSec, checks, logPath);
+            state.startRun(target, dwellSec, bootLimitSec, checks, stopOnFail, logPath);
             ui(() -> {
                 RebootStressService.startRun(this);
                 toast(String.format(Locale.US,
@@ -272,6 +280,7 @@ public class RebootStressActivity extends BaseTestActivity {
         targetInput.setEnabled(!running);
         dwellInput.setEnabled(!running);
         bootLimitInput.setEnabled(!running);
+        stopOnFailBox.setEnabled(!running);
         for (Map.Entry<RebootChecks.Check, CheckBox> entry : checkBoxes.entrySet()) {
             entry.getValue().setEnabled(
                     !running && RebootChecks.isSupported(this, entry.getKey()));

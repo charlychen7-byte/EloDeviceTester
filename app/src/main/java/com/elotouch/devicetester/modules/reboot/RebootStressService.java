@@ -201,7 +201,7 @@ public class RebootStressService extends Service {
 
     private void runLoop(boolean recordBoot, long bootElapsedMs) {
         try {
-            if (recordBoot) recordThisBoot(bootElapsedMs);
+            boolean justFailed = recordBoot && !recordThisBoot(bootElapsedMs);
 
             if (state.completed() >= state.target()) {
                 state.stopRun();
@@ -211,6 +211,16 @@ public class RebootStressService extends Service {
                 // the service itself must go away rather than sit in the
                 // foreground for the rest of the device's uptime.
                 notifyCompletion("测试完成 / finished — " + state.summaryLine());
+                shutdown();
+                return;
+            }
+
+            if (justFailed && state.stopOnFail()) {
+                state.stopRun();
+                RebootStressLog.appendFooter(state.logPath(),
+                        "stopped: cycle " + state.completed()
+                                + " failed (stop-on-fail enabled): " + state.summaryLine());
+                notifyCompletion("因失败停止 / stopped after failure — " + state.summaryLine());
                 shutdown();
                 return;
             }
@@ -233,8 +243,12 @@ public class RebootStressService extends Service {
         }
     }
 
-    /** Scores the boot we just completed and writes it to prefs and the log. */
-    private void recordThisBoot(long bootElapsedMs) throws InterruptedException {
+    /**
+     * Scores the boot we just completed and writes it to prefs and the log.
+     *
+     * @return whether the cycle passed
+     */
+    private boolean recordThisBoot(long bootElapsedMs) throws InterruptedException {
         int index = state.pendingCycle();
         if (index <= 0) index = state.completed() + 1;
 
@@ -275,6 +289,26 @@ public class RebootStressService extends Service {
         String error = RebootStressLog.append(state.logPath(), cycle);
         if (error != null) state.setLastError(error);
         Log.i(TAG, "cycle " + index + ": " + cycle.headline() + " " + note);
+
+        if (!pass) requestBugreport(index);
+        return pass;
+    }
+
+    /**
+     * Fires an automatic bugreport capture for a failed cycle. Fire-and-forget:
+     * the actual file only arrives later, through {@link RebootAdminReceiver}'s
+     * callbacks, once the operator accepts the OS's sharing prompt.
+     */
+    private void requestBugreport(int cycle) {
+        DevicePolicyManager dpm =
+                (DevicePolicyManager) getSystemService(Context.DEVICE_POLICY_SERVICE);
+        if (dpm == null || !dpm.isDeviceOwnerApp(getPackageName())) return;
+        state.markBugreportRequested(cycle);
+        boolean started = dpm.requestBugreport(RebootAdminReceiver.componentName(this));
+        RebootStressLog.appendComment(state.logPath(), started
+                ? "bugreport requested for cycle " + cycle
+                : "bugreport request for cycle " + cycle
+                        + " could not start (one already in progress)");
     }
 
     /**

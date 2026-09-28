@@ -8,7 +8,7 @@ public final class DeviceInfo {
     private DeviceInfo() {}
 
     public static String banner() {
-        return "Model 型号：" + Build.MANUFACTURER + " " + Build.MODEL + "\n"
-                + "Android " + Build.VERSION.RELEASE + " (API " + Build.VERSION.SDK_INT + ")";
+        return "Model 型号：" + Build.MANUFACTURER + " " + Build.MODEL + ", "
+                + "Android " + Build.VERSION.RELEASE;
     }
 }

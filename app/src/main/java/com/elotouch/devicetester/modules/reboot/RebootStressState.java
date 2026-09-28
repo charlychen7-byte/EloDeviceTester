@@ -28,6 +28,8 @@ public final class RebootStressState {
     private static final String KEY_DWELL_SEC = "dwell_sec";
     private static final String KEY_BOOT_LIMIT_SEC = "boot_limit_sec";
     private static final String KEY_ENABLED_CHECKS = "enabled_checks";
+    private static final String KEY_STOP_ON_FAIL = "stop_on_fail";
+    private static final String KEY_BUGREPORT_CYCLE = "bugreport_cycle";
     private static final String KEY_PENDING_CYCLE = "pending_cycle";
     private static final String KEY_REBOOT_TRIGGERED_MS = "reboot_triggered_ms";
     private static final String KEY_COMPLETED = "completed";
@@ -80,12 +82,15 @@ public final class RebootStressState {
         return set;
     }
 
+    public boolean stopOnFail() { return prefs.getBoolean(KEY_STOP_ON_FAIL, false); }
+
     /**
      * Wipes the previous run and arms a new one. The caller supplies the log
      * path because the log preamble is written at the same moment.
      */
     public void startRun(int target, int dwellSec, int bootLimitSec,
-                         EnumSet<RebootChecks.Check> checks, String logPath) {
+                         EnumSet<RebootChecks.Check> checks, boolean stopOnFail,
+                         String logPath) {
         StringBuilder joined = new StringBuilder();
         for (RebootChecks.Check c : checks) {
             if (joined.length() > 0) joined.append(",");
@@ -97,6 +102,8 @@ public final class RebootStressState {
                 .putInt(KEY_DWELL_SEC, dwellSec)
                 .putInt(KEY_BOOT_LIMIT_SEC, bootLimitSec)
                 .putString(KEY_ENABLED_CHECKS, joined.toString())
+                .putBoolean(KEY_STOP_ON_FAIL, stopOnFail)
+                .putInt(KEY_BUGREPORT_CYCLE, 0)
                 .putString(KEY_LOG_PATH, logPath)
                 .putLong(KEY_RUN_STARTED_MS, System.currentTimeMillis())
                 .putInt(KEY_PENDING_CYCLE, 0)
@@ -155,6 +162,17 @@ public final class RebootStressState {
                 .putInt(KEY_PENDING_CYCLE, cycle)
                 .putLong(KEY_REBOOT_TRIGGERED_MS, System.currentTimeMillis())
                 .commit();
+    }
+
+    /**
+     * Which cycle a bugreport was requested for. The sharing callback can land
+     * long after the cycle that triggered it — even after further reboots —
+     * so this is what lets {@link RebootAdminReceiver} label the saved file.
+     */
+    public int bugreportCycle() { return prefs.getInt(KEY_BUGREPORT_CYCLE, 0); }
+
+    public void markBugreportRequested(int cycle) {
+        prefs.edit().putInt(KEY_BUGREPORT_CYCLE, cycle).apply();
     }
 
     public RebootCycle currentCycle() {

@@ -63,9 +63,8 @@ public class DdrActivity extends BaseTestActivity {
                 () -> startActivity(new Intent(this, MemtesterActivity.class)));
 
         addSectionTitle("QMESA Stress Test");
-        addInfo("Runs the vendor QMESA stress tool with an 8-16MB working set across "
-                + "4 threads, for up to ~2.7 hours or until stopped.\n"
-                + "运行厂商 QMESA 压力测试工具（8-16MB 工作集，4 线程），最长约 2.7 小时或手动停止。");
+        addInfo("Runs the vendor QMESA stress tool\n"
+                + "运行厂商 QMESA 压力测试工具");
         addButton("Enter Test / 进入测试",
                 () -> startActivity(new Intent(this, QmesaActivity.class)));
     }
