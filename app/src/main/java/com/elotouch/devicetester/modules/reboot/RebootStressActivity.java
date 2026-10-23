@@ -125,7 +125,7 @@ public class RebootStressActivity extends BaseTestActivity {
             addView(box);
             checkBoxes.put(check, box);
         }
-
+        countdownText = addInfo("");
         startButton = addButton("Start 开始", this::onStartClicked);
         stopButton = addButton("Stop 停止", this::onStopClicked);
 
@@ -137,7 +137,6 @@ public class RebootStressActivity extends BaseTestActivity {
         currentHeadline = addInfo("—");
         currentChecks = addInfo("");
         currentNote = addInfo("");
-        countdownText = addInfo("");
 
         addSectionTitle("Summary 汇总");
         summaryText = addInfo("");
