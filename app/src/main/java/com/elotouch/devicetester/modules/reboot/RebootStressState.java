@@ -29,6 +29,7 @@ public final class RebootStressState {
     private static final String KEY_BOOT_LIMIT_SEC = "boot_limit_sec";
     private static final String KEY_ENABLED_CHECKS = "enabled_checks";
     private static final String KEY_STOP_ON_FAIL = "stop_on_fail";
+    private static final String KEY_USB_EXPECTED = "usb_expected";
     private static final String KEY_BUGREPORT_CYCLE = "bugreport_cycle";
     private static final String KEY_PENDING_CYCLE = "pending_cycle";
     private static final String KEY_REBOOT_TRIGGERED_MS = "reboot_triggered_ms";
@@ -84,13 +85,16 @@ public final class RebootStressState {
 
     public boolean stopOnFail() { return prefs.getBoolean(KEY_STOP_ON_FAIL, false); }
 
+    /** USB storage devices connected when the run started. */
+    public int usbExpected() { return prefs.getInt(KEY_USB_EXPECTED, 0); }
+
     /**
      * Wipes the previous run and arms a new one. The caller supplies the log
      * path because the log preamble is written at the same moment.
      */
     public void startRun(int target, int dwellSec, int bootLimitSec,
                          EnumSet<RebootChecks.Check> checks, boolean stopOnFail,
-                         String logPath) {
+                         int usbExpected, String logPath) {
         StringBuilder joined = new StringBuilder();
         for (RebootChecks.Check c : checks) {
             if (joined.length() > 0) joined.append(",");
@@ -103,6 +107,7 @@ public final class RebootStressState {
                 .putInt(KEY_BOOT_LIMIT_SEC, bootLimitSec)
                 .putString(KEY_ENABLED_CHECKS, joined.toString())
                 .putBoolean(KEY_STOP_ON_FAIL, stopOnFail)
+                .putInt(KEY_USB_EXPECTED, usbExpected)
                 .putInt(KEY_BUGREPORT_CYCLE, 0)
                 .putString(KEY_LOG_PATH, logPath)
                 .putLong(KEY_RUN_STARTED_MS, System.currentTimeMillis())
@@ -218,6 +223,22 @@ public final class RebootStressState {
         if (samples > 0) {
             sb.append(String.format(Locale.US,
                     " · 开机耗时 min %.1f / avg %.1f / max %.1f s",
+                    bootMinMs() / 1000.0,
+                    bootSumMs() / 1000.0 / samples,
+                    bootMaxMs() / 1000.0));
+        }
+        return sb.toString();
+    }
+
+    /** English form of {@link #summaryLine()} for the CSV footer. */
+    public String logSummary() {
+        StringBuilder sb = new StringBuilder(String.format(Locale.US,
+                "completed %d/%d, PASS %d, FAIL %d",
+                completed(), target(), passCount(), failCount()));
+        int samples = bootSamples();
+        if (samples > 0) {
+            sb.append(String.format(Locale.US,
+                    ", boot time min %.1f / avg %.1f / max %.1f s",
                     bootMinMs() / 1000.0,
                     bootSumMs() / 1000.0 / samples,
                     bootMaxMs() / 1000.0));

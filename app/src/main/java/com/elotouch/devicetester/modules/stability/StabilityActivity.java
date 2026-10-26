@@ -14,10 +14,20 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import com.elotouch.devicetester.core.BaseTestActivity;
+import com.elotouch.devicetester.modules.cpu.CpuReader;
+import com.elotouch.devicetester.modules.cpu.CpuUsageSampler;
 
 import java.io.BufferedReader;
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.FileReader;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
@@ -27,7 +37,11 @@ import java.util.concurrent.Executors;
  * System stability module: runs any combination of CPU full load, GPU
  * rendering, EMMC read/write and DDR read/write continuously, for a duration
  * in minutes (blank = until stopped), and reports each subsystem's live
- * counters plus a best-effort temperature readout.
+ * counters plus CPU load and a best-effort temperature readout.
+ *
+ * <p>Every run also writes a CSV log to the app's external files folder: one
+ * record immediately after Start and one per minute after that, holding the
+ * per-core CPU frequency, CPU load, CPU temperature and battery temperature.
  *
  * <p>Unlike the single-test modules this page needs real concurrency — four
  * tasks at once, the CPU one with a thread per core — so it runs its own
@@ -41,6 +55,7 @@ public class StabilityActivity extends BaseTestActivity {
     private static final int FAIL_COLOR = Color.parseColor("#C62828");
     private static final int GL_VIEW_HEIGHT_DP = 200;
     private static final int THERMAL_ZONES = 20;
+    private static final long LOG_INTERVAL_MS = 60_000L;
 
     private CheckBox cpuBox;
     private CheckBox gpuBox;
@@ -50,7 +65,9 @@ public class StabilityActivity extends BaseTestActivity {
     private Button startButton;
     private Button stopButton;
     private TextView statusText;
+    private TextView cpuLoadText;
     private TextView tempText;
+    private TextView logText;
     private LinearLayout statusContainer;
     private LinearLayout glContainer;
     private int defaultStatusColor;
@@ -69,6 +86,18 @@ public class StabilityActivity extends BaseTestActivity {
     private boolean userStopped;
     private volatile String tempLine = "";
 
+    /** Recreated per run; only touched inside {@link #sampleSensors()}. */
+    private CpuUsageSampler cpuSampler = new CpuUsageSampler();
+    private volatile double cpuLoadPercent = CpuUsageSampler.UNKNOWN;
+    private volatile Double cpuTempC;
+    private volatile Double batteryTempC;
+
+    /** Guards {@link #logWriter}; writes come from the pool, close from the UI thread. */
+    private final Object logLock = new Object();
+    private BufferedWriter logWriter;
+    /** Elapsed time at which the next minute record is due; only used inside {@link #sampleSensors()}. */
+    private long nextLogMs;
+
     private final Runnable autoStopRunnable = () -> {
         durationReached = true;
         stopRun();
@@ -80,7 +109,7 @@ public class StabilityActivity extends BaseTestActivity {
             if (!running) return;
             renderRunningStatus();
             ExecutorService p = pool;
-            if (p != null) p.execute(StabilityActivity.this::sampleTemperature);
+            if (p != null) p.execute(StabilityActivity.this::sampleSensors);
             main.postDelayed(this, 1000);
         }
     };
@@ -115,10 +144,12 @@ public class StabilityActivity extends BaseTestActivity {
         stopButton.setEnabled(false);
 
         addSectionTitle("实时状态 / Live Status");
+        cpuLoadText = addInfo("");
+        tempText = addInfo("");
         statusContainer = new LinearLayout(this);
         statusContainer.setOrientation(LinearLayout.VERTICAL);
         addView(statusContainer);
-        tempText = addInfo("");
+        logText = addInfo("");
 
         glContainer = new LinearLayout(this);
         glContainer.setOrientation(LinearLayout.VERTICAL);
@@ -177,7 +208,13 @@ public class StabilityActivity extends BaseTestActivity {
         userStopped = false;
         durationReached = false;
         tempLine = "";
+        cpuLoadPercent = CpuUsageSampler.UNKNOWN;
+        cpuTempC = null;
+        batteryTempC = null;
+        cpuSampler = new CpuUsageSampler();
+        nextLogMs = 0;
         startTimeMs = System.currentTimeMillis();
+        openLog();
         statusText.setTextColor(defaultStatusColor);
         startButton.setEnabled(false);
         stopButton.setEnabled(true);
@@ -208,6 +245,8 @@ public class StabilityActivity extends BaseTestActivity {
         ExecutorService p = pool;
         pool = null;
         if (p != null) p.shutdownNow();
+        closeLog(durationReached ? "duration reached"
+                : (userStopped ? "stopped by user" : "page left"));
 
         glContainer.removeAllViews();
 
@@ -249,8 +288,14 @@ public class StabilityActivity extends BaseTestActivity {
                 "Running 运行中   已测试时间 Elapsed: %s%s",
                 formatElapsed(elapsedSeconds()),
                 durationMs == null ? "" : " / " + formatElapsed(durationMs / 1000)));
-        renderTaskLines();
+        cpuLoadText.setText("CPU Loading: " + loadText());
         tempText.setText(tempLine);
+        renderTaskLines();
+    }
+
+    private String loadText() {
+        double load = cpuLoadPercent;
+        return load == CpuUsageSampler.UNKNOWN ? "--" : String.format(Locale.US, "%.1f%%", load);
     }
 
     private void renderTaskLines() {
@@ -263,8 +308,9 @@ public class StabilityActivity extends BaseTestActivity {
     }
 
     private void renderFinalStatus() {
-        renderTaskLines();
+        cpuLoadText.setText("CPU 负载 Load: " + loadText());
         tempText.setText(tempLine);
+        renderTaskLines();
 
         int errors = 0;
         for (StressTask task : tasks) errors += task.errorCount();
@@ -298,41 +344,128 @@ public class StabilityActivity extends BaseTestActivity {
     // ------------------------------------------------------------- temperature
 
     /**
-     * Best-effort temperature sample. Runs on the pool, never the UI thread, so
-     * the thermal-zone file reads cannot stall the tick; the tick just renders
-     * whatever the last sample produced.
+     * Once-a-second sensor sample: CPU load, battery and CPU temperature, plus
+     * the minute log record when one is due. Runs on the pool, never the UI
+     * thread, so the sysfs/proc reads cannot stall the tick; the tick just
+     * renders whatever the last sample produced.
      */
-    private void sampleTemperature() {
-        StringBuilder sb = new StringBuilder();
+    private synchronized void sampleSensors() {
+        Double battery = null;
         try {
-            Intent battery = registerReceiver(null,
+            Intent intent = registerReceiver(null,
                     new IntentFilter(Intent.ACTION_BATTERY_CHANGED));
-            if (battery != null) {
-                int tenths = battery.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
-                if (tenths > 0) {
-                    sb.append(String.format(Locale.US, "电池 Battery %.1f°C", tenths / 10.0));
-                }
+            if (intent != null) {
+                int tenths = intent.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, -1);
+                if (tenths > 0) battery = tenths / 10.0;
             }
         } catch (Exception ignored) {
             // Some builds refuse the sticky battery broadcast; temperature is optional.
         }
+        batteryTempC = battery;
+        cpuTempC = readCpuThermal();
+        cpuLoadPercent = cpuSampler.sample();
 
-        String cpu = readCpuThermal();
-        if (cpu != null) {
+        StringBuilder sb = new StringBuilder();
+        if (batteryTempC != null) {
+            sb.append(String.format(Locale.US, "电池 Battery %.1f°C", batteryTempC));
+        }
+        if (cpuTempC != null) {
             if (sb.length() > 0) sb.append("   ");
-            sb.append("CPU ").append(cpu);
+            sb.append(String.format(Locale.US, "CPU %.1f°C", cpuTempC));
         }
         tempLine = sb.length() == 0
                 ? "温度 Temp: 不可获取 / Not available"
                 : "温度 Temp: " + sb;
+
+        long elapsedMs = System.currentTimeMillis() - startTimeMs;
+        if (elapsedMs >= nextLogMs) {
+            nextLogMs += LOG_INTERVAL_MS;
+            writeLogRecord(elapsedMs);
+        }
     }
+
+    // --------------------------------------------------------------------- log
+
+    /** Creates this run's CSV log in app-private external storage. UI thread. */
+    private void openLog() {
+        File dir = getExternalFilesDir(null);
+        if (dir == null) dir = getFilesDir();
+        String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        File file = new File(dir, "stability_" + stamp + ".log");
+        List<String> names = new ArrayList<>();
+        for (StressTask task : tasks) names.add(task.label());
+        try {
+            BufferedWriter writer = new BufferedWriter(new OutputStreamWriter(
+                    new FileOutputStream(file), StandardCharsets.UTF_8));
+            synchronized (logLock) {
+                logWriter = writer;
+            }
+            writeLog("# Stability test started " + stamp + ", tests: " + String.join(", ", names));
+            writeLog("time,elapsed,cpu_freq_khz_per_core,cpu_load_pct,cpu_temp_c,battery_temp_c");
+            logText.setText("Log 日志文件: " + file.getAbsolutePath());
+        } catch (IOException e) {
+            logText.setText("Log 日志不可用 / unavailable: " + e.getMessage());
+        }
+    }
+
+    /** Writes one CSV record; frequencies are ';'-separated per core, blank when unreadable. */
+    private void writeLogRecord(long elapsedMs) {
+        StringBuilder freqs = new StringBuilder();
+        int cores = CpuReader.coreCount();
+        for (int cpu = 0; cpu < cores; cpu++) {
+            if (cpu > 0) freqs.append(';');
+            long khz = CpuReader.readFreq(cpu).curKHz;
+            if (khz != CpuReader.UNKNOWN) freqs.append(khz);
+        }
+        String load = cpuLoadPercent == CpuUsageSampler.UNKNOWN
+                ? "" : String.format(Locale.US, "%.1f", cpuLoadPercent);
+        String cpuTemp = cpuTempC == null ? "" : String.format(Locale.US, "%.1f", cpuTempC);
+        String batteryTemp = batteryTempC == null
+                ? "" : String.format(Locale.US, "%.1f", batteryTempC);
+        writeLog(String.format(Locale.US, "%s,%s,%s,%s,%s,%s",
+                new SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.US).format(new Date()),
+                formatElapsed(elapsedMs / 1000), freqs, load, cpuTemp, batteryTemp));
+    }
+
+    /** Appends one line and flushes it, so a crash or power loss keeps every record so far. */
+    private void writeLog(String line) {
+        synchronized (logLock) {
+            if (logWriter == null) return;
+            try {
+                logWriter.write(line);
+                logWriter.newLine();
+                logWriter.flush();
+            } catch (IOException e) {
+                logWriter = null;
+                ui(() -> logText.setText("Log 日志写入失败 / write failed: " + e.getMessage()));
+            }
+        }
+    }
+
+    /** Writes the end marker and closes the file. Safe to call when no log is open. */
+    private void closeLog(String reason) {
+        synchronized (logLock) {
+            if (logWriter == null) return;
+            try {
+                logWriter.write("# ended, elapsed " + formatElapsed(elapsedSeconds())
+                        + ", " + reason);
+                logWriter.newLine();
+                logWriter.close();
+            } catch (IOException ignored) {
+                // Closing a log that already failed to write has nothing left to report.
+            }
+            logWriter = null;
+        }
+    }
+
+    // ------------------------------------------------------------- sensor reads
 
     /**
      * First CPU/SoC thermal zone that this build lets us read, or null. The zone
      * is located once and then remembered ("" when there is none), so the
      * per-second sample does not rescan up to 40 sysfs files every time.
      */
-    private String readCpuThermal() {
+    private Double readCpuThermal() {
         String known = thermalPath;
         if (known != null) {
             return known.isEmpty() ? null : readTemperature(known);
@@ -345,7 +478,7 @@ public class StabilityActivity extends BaseTestActivity {
             if (!lower.contains("cpu") && !lower.contains("soc") && !lower.contains("tsens")) {
                 continue;
             }
-            String temperature = readTemperature(base + "temp");
+            Double temperature = readTemperature(base + "temp");
             if (temperature != null) {
                 thermalPath = base + "temp";
                 return temperature;
@@ -355,14 +488,15 @@ public class StabilityActivity extends BaseTestActivity {
         return null;
     }
 
-    private static String readTemperature(String path) {
+    /** Degrees Celsius from a thermal file, or null when unreadable. */
+    private static Double readTemperature(String path) {
         String raw = readFirstLine(path);
         if (raw == null) return null;
         try {
             double value = Double.parseDouble(raw.trim());
             // Zones report either milli-degrees or whole degrees.
             if (Math.abs(value) > 1000) value /= 1000.0;
-            return String.format(Locale.US, "%.1f°C", value);
+            return value;
         } catch (NumberFormatException e) {
             return null;
         }

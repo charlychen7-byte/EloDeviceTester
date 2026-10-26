@@ -118,10 +118,16 @@ public class QmesaActivity extends NativeToolTestActivity {
     }
 
     @Override
+    protected String logFilePrefix() {
+        return "qmesa";
+    }
+
+    @Override
     protected String description() {
         return "Runs the vendor QMESA stress tool with the command shown below. Edit any "
-                + "argument before starting; clear a field to leave that argument off.\n"
+                + "argument before starting; clear a field to leave that argument off. "
+                + "Output is saved to a log file in the app's external files folder.\n"
                 + "运行厂商 QMESA 压力测试工具，执行下方显示的指令。开始前可修改任意参数；"
-                + "清空某个输入框则不传该参数。";
+                + "清空某个输入框则不传该参数。输出会实时保存到应用外部文件目录下的日志文件中。";
     }
 }

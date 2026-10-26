@@ -2,6 +2,7 @@ package com.elotouch.devicetester.modules.ddr;
 
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.util.Log;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.ViewGroup;
@@ -13,9 +14,17 @@ import android.widget.TextView;
 import com.elotouch.devicetester.core.BaseTestActivity;
 import com.elotouch.devicetester.core.NativeProcessRunner;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
+import java.text.SimpleDateFormat;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
 import java.util.Deque;
 import java.util.List;
 import java.util.Locale;
@@ -68,11 +77,29 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
     protected void setExtraControlsEnabled(boolean enabled) {
     }
 
+    /**
+     * File-name prefix for a per-run log file, e.g. "memtester"; every output
+     * line is appended and flushed as it arrives. Null (default) writes no file.
+     */
+    protected String logFilePrefix() {
+        return null;
+    }
+
+    /** Called on the UI thread when a run starts, before the tool is launched. Default: no-op. */
+    protected void onRunStarted() {
+    }
+
+    /** Called on the UI thread when a run ends, however it ended. Default: no-op. */
+    protected void onRunFinished() {
+    }
+
     private final NativeProcessRunner runner = new NativeProcessRunner();
     private final Deque<String> lastLines = new ArrayDeque<>();
     private final Object logBufferLock = new Object();
     private final List<String> pendingLines = new ArrayList<>();
     private boolean uiFlushScheduled;
+    /** Only touched on the background run thread. */
+    private BufferedWriter logWriter;
 
     private TextView statusText;
     private ScrollView logScroll;
@@ -169,15 +196,63 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
             main.postDelayed(autoStopRunnable, durationMs);
         }
 
+        onRunStarted();
+
         String[] args = buildArgs();
         runAsync(() -> {
+            openLogFile(args);
             try {
                 runner.run(NativeToolTestActivity.this, soName(), args, this::onLine);
             } catch (IOException e) {
                 startFailure = e.getMessage();
+            } finally {
+                closeLogFile();
             }
             ui(this::onFinished);
         });
+    }
+
+    /** Opens the per-run log file (background thread) if this tool asks for one. */
+    private void openLogFile(String[] args) {
+        String prefix = logFilePrefix();
+        if (prefix == null) return;
+        String stamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
+        File dir = getExternalFilesDir(null);
+        if (dir == null) dir = getFilesDir();
+        File file = new File(dir, prefix + "_" + stamp + ".log");
+        try {
+            logWriter = new BufferedWriter(new OutputStreamWriter(
+                    new FileOutputStream(file), StandardCharsets.UTF_8));
+            onLine("=== " + prefix + " started " + stamp + " args " + Arrays.toString(args) + " ===");
+            onLine("Log file 日志文件: " + file.getAbsolutePath());
+        } catch (IOException e) {
+            Log.w("NativeToolTest", "cannot open log file " + file, e);
+            onLine("Log file unavailable 无法写入日志文件: " + e.getMessage());
+        }
+    }
+
+    /** Writes the end-of-run marker and closes the log file (background thread). */
+    private void closeLogFile() {
+        if (logWriter == null) return;
+        onLine("=== ended, exit code " + runner.lastExitCode() + " ===");
+        try {
+            logWriter.close();
+        } catch (IOException e) {
+            Log.w("NativeToolTest", "error closing log file", e);
+        }
+        logWriter = null;
+    }
+
+    /** Appends one line to the log file and flushes it so nothing is lost on a crash. */
+    private void writeToLog(String line) {
+        try {
+            logWriter.write(line);
+            logWriter.newLine();
+            logWriter.flush();
+        } catch (IOException e) {
+            Log.w("NativeToolTest", "log write failed, stopping file log", e);
+            logWriter = null;
+        }
     }
 
     private void stop() {
@@ -187,6 +262,7 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
 
     private void onLine(String line) {
         if (line.contains(failureKeyword())) failureSeen = true;
+        if (logWriter != null) writeToLog(line);
         boolean shouldSchedule = false;
         synchronized (logBufferLock) {
             pendingLines.add(line);
@@ -233,6 +309,7 @@ public abstract class NativeToolTestActivity extends BaseTestActivity {
         stopButton.setEnabled(false);
         setExtraControlsEnabled(true);
         main.removeCallbacks(autoStopRunnable);
+        onRunFinished();
         long elapsed = (System.currentTimeMillis() - startTimeMs) / 1000;
         String elapsedStr = formatElapsed(elapsed);
         int exitCode = runner.lastExitCode();

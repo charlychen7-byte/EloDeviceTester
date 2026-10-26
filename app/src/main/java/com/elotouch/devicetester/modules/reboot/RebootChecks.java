@@ -1,7 +1,6 @@
 package com.elotouch.devicetester.modules.reboot;
 
 import android.content.Context;
-import android.content.pm.PackageManager;
 import android.hardware.usb.UsbDevice;
 import android.hardware.usb.UsbInterface;
 import android.hardware.usb.UsbManager;
@@ -11,7 +10,6 @@ import android.net.NetworkCapabilities;
 
 import com.elotouch.devicetester.modules.cashdrawer.CashDrawerController;
 
-import java.io.File;
 import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.Map;
@@ -35,10 +33,10 @@ public final class RebootChecks {
     private static final int USB_CLASS_MASS_STORAGE = 8;
 
     public enum Check {
-        ETHERNET("ethernet", "Ethernet 以太网已连接"),
-        WIFI("wifi", "Wi-Fi 已连接"),
-        CASH_DRAWER("cash_drawer", "Cash Drawer 钱箱已连接"),
-        USB_DRIVE("usb_drive", "USB 存储设备已连接");
+        ETHERNET("ethernet", "Ethernet"),
+        WIFI("wifi", "Wi-Fi"),
+        CASH_DRAWER("cash_drawer", "Cash Drawer"),
+        USB_DRIVE("usb_drive", "USB Storage");
 
         /** Stable key used in prefs and as the CSV column name. */
         public final String key;
@@ -56,20 +54,29 @@ public final class RebootChecks {
      * Runs the enabled checks; everything not enabled comes back
      * {@link #SKIPPED} so the log distinguishes "not connected" from
      * "never looked".
+     *
+     * @param expectedUsbStorage how many USB storage devices were connected
+     *                           when the run started; the USB check passes only
+     *                           while exactly that many are still present
      */
-    public static Map<Check, String> run(Context context, EnumSet<Check> enabled) {
+    public static Map<Check, String> run(Context context, EnumSet<Check> enabled,
+                                         int expectedUsbStorage) {
         Map<Check, String> results = new EnumMap<>(Check.class);
         for (Check c : Check.values()) {
             if (!enabled.contains(c)) {
                 results.put(c, SKIPPED);
                 continue;
             }
-            results.put(c, probe(context, c) ? CONNECTED : ABSENT);
+            boolean pass = c == Check.USB_DRIVE
+                    ? countUsbStorage(context) == expectedUsbStorage
+                    : isConnected(context, c);
+            results.put(c, pass ? CONNECTED : ABSENT);
         }
         return results;
     }
 
-    private static boolean probe(Context context, Check check) {
+    /** Whether the peripheral for this check is connected right now. */
+    public static boolean isConnected(Context context, Check check) {
         switch (check) {
             case ETHERNET:
                 return hasTransport(context, NetworkCapabilities.TRANSPORT_ETHERNET);
@@ -79,43 +86,27 @@ public final class RebootChecks {
                 return hasUsbDevice(context, CashDrawerController.VENDOR_ID,
                         CashDrawerController.PRODUCT_ID);
             case USB_DRIVE:
-                return hasMassStorage(context);
+                return countUsbStorage(context) > 0;
             default:
                 return false;
         }
     }
 
-    /**
-     * Whether this device could ever satisfy the check, so the Activity can
-     * grey out the ones that are meaningless here (PRD §5.3).
-     */
-    public static boolean isSupported(Context context, Check check) {
-        PackageManager pm = context.getPackageManager();
-        switch (check) {
-            case ETHERNET:
-                // Plenty of ethernet-equipped devices never declare the system
-                // feature, so fall back to asking the kernel whether an
-                // ethernet interface exists at all.
-                return pm.hasSystemFeature(PackageManager.FEATURE_ETHERNET)
-                        || hasEthernetInterface();
-            case WIFI:
-                return pm.hasSystemFeature(PackageManager.FEATURE_WIFI);
-            case CASH_DRAWER:
-            case USB_DRIVE:
-                return pm.hasSystemFeature(PackageManager.FEATURE_USB_HOST);
-            default:
-                return false;
+    /** How many connected USB devices expose a mass-storage interface. */
+    public static int countUsbStorage(Context context) {
+        UsbManager um = (UsbManager) context.getSystemService(Context.USB_SERVICE);
+        if (um == null) return 0;
+        int count = 0;
+        for (UsbDevice device : um.getDeviceList().values()) {
+            for (int i = 0; i < device.getInterfaceCount(); i++) {
+                UsbInterface iface = device.getInterface(i);
+                if (iface.getInterfaceClass() == USB_CLASS_MASS_STORAGE) {
+                    count++;
+                    break;
+                }
+            }
         }
-    }
-
-    private static boolean hasEthernetInterface() {
-        File netDir = new File("/sys/class/net");
-        File[] interfaces = netDir.listFiles();
-        if (interfaces == null) return false;
-        for (File iface : interfaces) {
-            if (iface.getName().startsWith("eth")) return true;
-        }
-        return false;
+        return count;
     }
 
     private static boolean hasTransport(Context context, int transport) {
@@ -137,18 +128,6 @@ public final class RebootChecks {
         for (UsbDevice device : um.getDeviceList().values()) {
             if (device.getVendorId() == vendorId && device.getProductId() == productId) {
                 return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean hasMassStorage(Context context) {
-        UsbManager um = (UsbManager) context.getSystemService(Context.USB_SERVICE);
-        if (um == null) return false;
-        for (UsbDevice device : um.getDeviceList().values()) {
-            for (int i = 0; i < device.getInterfaceCount(); i++) {
-                UsbInterface iface = device.getInterface(i);
-                if (iface.getInterfaceClass() == USB_CLASS_MASS_STORAGE) return true;
             }
         }
         return false;

@@ -55,10 +55,8 @@ public class DdrActivity extends BaseTestActivity {
          */
 
         addSectionTitle("Memtester Stress Test");
-        addInfo("Runs the open-source memtester binary against ~1/4 of total RAM "
-                + "(capped at 80% of available RAM), looping forever until stopped.\n"
-                + "运行开源 memtester 工具，测试容量约为总内存的 1/4（不超过可用内存的 80%），"
-                + "无限循环直到点击 Stop。");
+        addInfo("Runs the open-source memtester tool\n"
+                + "运行开源 memtester 工具");
         addButton("Enter Test / 进入测试",
                 () -> startActivity(new Intent(this, MemtesterActivity.class)));
 

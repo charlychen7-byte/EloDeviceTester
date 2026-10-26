@@ -112,16 +112,9 @@ public class RebootStressActivity extends BaseTestActivity {
         EnumSet<RebootChecks.Check> restored = restoredChecks();
         for (RebootChecks.Check check : RebootChecks.Check.values()) {
             CheckBox box = new CheckBox(this);
-            boolean supported = RebootChecks.isSupported(this, check);
-            if (supported) {
-                box.setText(check.label);
-                box.setChecked(restored.contains(check));
-            } else {
-                // PRD 5.3: never offer a test the hardware cannot satisfy.
-                box.setText(check.label + " — hardware not supported 硬件不支持");
-                box.setEnabled(false);
-                box.setChecked(false);
-            }
+            box.setChecked(restored.contains(check));
+            // Text and enabled state are set by render(), which tracks the
+            // live connection state.
             addView(box);
             checkBoxes.put(check, box);
         }
@@ -227,6 +220,9 @@ public class RebootStressActivity extends BaseTestActivity {
 
     private void beginRun(int target, int dwellSec, int bootLimitSec,
                           EnumSet<RebootChecks.Check> checks, boolean stopOnFail) {
+        // The USB storage count is the baseline every reboot is compared to,
+        // so it is taken now, before the first reboot can change it.
+        final int usbExpected = RebootChecks.countUsbStorage(this);
         // File creation off the UI thread (PRD 5.5), then arm the run and hand
         // over to the service from the UI thread.
         runAsync(() -> {
@@ -238,7 +234,8 @@ public class RebootStressActivity extends BaseTestActivity {
                 ui(() -> toast("无法创建日志文件 / cannot create log file: " + e.getMessage()));
                 return;
             }
-            state.startRun(target, dwellSec, bootLimitSec, checks, stopOnFail, logPath);
+            state.startRun(target, dwellSec, bootLimitSec, checks, stopOnFail,
+                    usbExpected, logPath);
             ui(() -> {
                 RebootStressService.startRun(this);
                 toast(String.format(Locale.US,
@@ -280,9 +277,19 @@ public class RebootStressActivity extends BaseTestActivity {
         dwellInput.setEnabled(!running);
         bootLimitInput.setEnabled(!running);
         stopOnFailBox.setEnabled(!running);
+        // Only peripherals connected right now can be selected; the rest are
+        // greyed out and re-enabled live as they are plugged in.
+        int usbCount = RebootChecks.countUsbStorage(this);
         for (Map.Entry<RebootChecks.Check, CheckBox> entry : checkBoxes.entrySet()) {
-            entry.getValue().setEnabled(
-                    !running && RebootChecks.isSupported(this, entry.getKey()));
+            RebootChecks.Check check = entry.getKey();
+            CheckBox box = entry.getValue();
+            boolean usb = check == RebootChecks.Check.USB_DRIVE;
+            boolean connected = usb ? usbCount > 0 : RebootChecks.isConnected(this, check);
+            String text = usb && connected
+                    ? check.label + " (" + usbCount + ")"
+                    : check.label;
+            box.setText(connected ? text + " - Connected" : text + " — Not connected");
+            box.setEnabled(!running && connected);
         }
 
         renderCycle(state.previousCycle(), previousHeadline, previousChecks, null);
@@ -362,7 +369,7 @@ public class RebootStressActivity extends BaseTestActivity {
         EnumSet<RebootChecks.Check> selected = EnumSet.noneOf(RebootChecks.Check.class);
         for (Map.Entry<RebootChecks.Check, CheckBox> entry : checkBoxes.entrySet()) {
             CheckBox box = entry.getValue();
-            if (box.isChecked() && RebootChecks.isSupported(this, entry.getKey())) {
+            if (box.isChecked() && RebootChecks.isConnected(this, entry.getKey())) {
                 selected.add(entry.getKey());
             }
         }
@@ -380,7 +387,7 @@ public class RebootStressActivity extends BaseTestActivity {
         EnumSet<RebootChecks.Check> defaults = EnumSet.noneOf(RebootChecks.Check.class);
         for (RebootChecks.Check c : new RebootChecks.Check[]{
                 RebootChecks.Check.ETHERNET, RebootChecks.Check.WIFI}) {
-            if (RebootChecks.isSupported(this, c)) defaults.add(c);
+            if (RebootChecks.isConnected(this, c)) defaults.add(c);
         }
         return defaults;
     }

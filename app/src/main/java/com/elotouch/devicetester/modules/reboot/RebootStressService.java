@@ -206,7 +206,7 @@ public class RebootStressService extends Service {
             if (state.completed() >= state.target()) {
                 state.stopRun();
                 RebootStressLog.appendFooter(state.logPath(),
-                        "completed " + state.completed() + " cycle(s): " + state.summaryLine());
+                        "completed " + state.completed() + " cycle(s): " + state.logSummary());
                 // A separate dismissible notification is the completion record;
                 // the service itself must go away rather than sit in the
                 // foreground for the rest of the device's uptime.
@@ -219,7 +219,7 @@ public class RebootStressService extends Service {
                 state.stopRun();
                 RebootStressLog.appendFooter(state.logPath(),
                         "stopped: cycle " + state.completed()
-                                + " failed (stop-on-fail enabled): " + state.summaryLine());
+                                + " failed (stop-on-fail enabled): " + state.logSummary());
                 notifyCompletion("因失败停止 / stopped after failure — " + state.summaryLine());
                 shutdown();
                 return;
@@ -268,8 +268,12 @@ public class RebootStressService extends Service {
                     bootElapsedMs / 1000.0, state.bootLimitSec()));
         }
         for (Map.Entry<RebootChecks.Check, String> entry : checks.entrySet()) {
-            if (RebootChecks.ABSENT.equals(entry.getValue())) {
-                pass = false;
+            if (!RebootChecks.ABSENT.equals(entry.getValue())) continue;
+            pass = false;
+            if (entry.getKey() == RebootChecks.Check.USB_DRIVE) {
+                append(note, String.format(Locale.US, "usb_drive count %d, expected %d",
+                        RebootChecks.countUsbStorage(this), state.usbExpected()));
+            } else {
                 append(note, entry.getKey().key + " absent");
             }
         }
@@ -319,7 +323,8 @@ public class RebootStressService extends Service {
     private Map<RebootChecks.Check, String> runChecksWhenSettled(StringBuilder note)
             throws InterruptedException {
         java.util.EnumSet<RebootChecks.Check> enabled = state.enabledChecks();
-        Map<RebootChecks.Check, String> results = RebootChecks.run(this, enabled);
+        int usbExpected = state.usbExpected();
+        Map<RebootChecks.Check, String> results = RebootChecks.run(this, enabled, usbExpected);
         if (enabled.isEmpty() || !hasAbsent(results)) return results;
 
         long budgetMs = Math.min(CHECK_SETTLE_MS, state.dwellSec() * 1000L);
@@ -328,7 +333,7 @@ public class RebootStressService extends Service {
         while (SystemClock.elapsedRealtime() - startedAt < budgetMs) {
             if (serviceStopping || !state.isRunning()) break;
             Thread.sleep(1000);
-            results = RebootChecks.run(this, enabled);
+            results = RebootChecks.run(this, enabled, usbExpected);
             if (!hasAbsent(results)) {
                 append(note, String.format(Locale.US, "checks settled after %.0fs",
                         (SystemClock.elapsedRealtime() - startedAt) / 1000.0));

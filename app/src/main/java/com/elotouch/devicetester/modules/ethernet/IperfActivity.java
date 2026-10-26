@@ -104,7 +104,7 @@ public class IperfActivity extends BaseTestActivity {
         commandInput.setInputType(InputType.TYPE_CLASS_TEXT
                 | InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS);
         commandInput.setSingleLine(true);
-        commandInput.setHint("-c 192.168.1.10 -t 30 -i 1 -R");
+        commandInput.setText("-c 192.168.1.10 -t 30 -i 1 -R");
         addView(commandInput);
 
         addSectionTitle("测试次数 / Run Count");
