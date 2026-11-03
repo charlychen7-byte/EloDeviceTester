@@ -132,7 +132,12 @@ public final class RebootStressState {
      * apply() racing a shutdown could leave the run armed.
      */
     public void stopRun() {
-        prefs.edit().putBoolean(KEY_RUNNING, false).commit();
+        prefs.edit()
+                .putBoolean(KEY_RUNNING, false)
+                .putString(KEY_ENABLED_CHECKS, "")
+                .putBoolean(KEY_STOP_ON_FAIL, false)
+                .putInt(KEY_USB_EXPECTED, 0)
+                .commit();
     }
 
     // ------------------------------------------------------------- run progress

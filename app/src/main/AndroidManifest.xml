@@ -106,7 +106,7 @@
         <activity android:name=".modules.display.DisplayActivity"
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.display.EloColorPatternViewerActivity"
-            android:screenOrientation="nosensor"
+            android:screenOrientation="sensorLandscape"
             android:theme="@style/Theme.EloDeviceTester.Fullscreen" />
         <activity android:name=".modules.display.EloColorPatternActivity"
             android:screenOrientation="nosensor" />
@@ -145,7 +145,9 @@
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.camera.CameraActivity"
             android:screenOrientation="nosensor" />
-        <activity android:name=".modules.wifibt.WifiBtActivity"
+        <activity android:name=".modules.wifi.WifiActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.bluetooth.BluetoothActivity"
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.sensors.SensorsActivity"
             android:screenOrientation="nosensor" />
@@ -163,8 +165,6 @@
         </service>
         <activity android:name=".modules.barcode.BarcodeActivity"
             android:screenOrientation="nosensor" />
-        <activity android:name=".modules.msr.MsrActivity"
-            android:screenOrientation="nosensor" />
         <activity android:name=".modules.serial.SerialActivity"
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.displayext.DisplayExtActivity"
@@ -181,9 +181,21 @@
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.ping.PingTestActivity"
             android:screenOrientation="nosensor" />
+        <!-- Continuous ping that can keep running after its page is sent to the
+             background (后台运行), for a long link-stability run. -->
+        <service
+            android:name=".modules.ping.PingService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="continuous network ping for link-stability diagnostics after-sales inspection" />
+        </service>
         <activity android:name=".modules.usbotg.UsbOtgActivity"
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.cashdrawer.CashDrawerActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.payment.PaymentActivity"
             android:screenOrientation="nosensor" />
 
         <!-- ===================== Reboot stress test ===================== -->

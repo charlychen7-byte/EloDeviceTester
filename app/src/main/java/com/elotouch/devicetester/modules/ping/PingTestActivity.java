@@ -1,7 +1,10 @@
 package com.elotouch.devicetester.modules.ping;
 
+import android.Manifest;
+import android.content.Intent;
 import android.graphics.Color;
 import android.graphics.Typeface;
+import android.os.Build;
 import android.text.InputType;
 import android.view.MotionEvent;
 import android.view.View;
@@ -12,29 +15,25 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import androidx.core.content.ContextCompat;
+
 import com.elotouch.devicetester.core.BaseTestActivity;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.Locale;
 
 /**
  * Continuous ping test against an operator-supplied address, for a duration in
  * minutes (blank = until stopped).
  *
- * <p>This issues one {@link Ping#once} per second on the background executor
- * rather than leaving a long-lived ping process running: that counts every lost
- * packet exactly (a timed-out packet produces no output line of its own) and
- * makes Stop take effect immediately.
+ * <p>The loop itself lives in {@link PingService} so it keeps going after this
+ * page is sent to the background with the "后台运行" button. This Activity only
+ * starts and stops it and polls its progress once a second while visible.
+ * Leaving the page any other way stops the test, as on every other module.
  */
 public class PingTestActivity extends BaseTestActivity {
 
     private static final int PASS_COLOR = Color.parseColor("#2E7D32");
     private static final int FAIL_COLOR = Color.parseColor("#C62828");
-    private static final int MAX_LOG_LINES = 200;
-    private static final long PING_INTERVAL_MS = 1000L;
-    /** Kept below the interval so the loop holds its 1 Hz cadence. */
-    private static final int PING_TIMEOUT_SECONDS = 1;
 
     private EditText hostInput;
     private EditText minutesInput;
@@ -42,41 +41,20 @@ public class PingTestActivity extends BaseTestActivity {
     private TextView statsText;
     private Button startButton;
     private Button stopButton;
+    private Button backgroundButton;
     private ScrollView logScroll;
     private TextView logText;
-
-    private final Deque<String> logLines = new ArrayDeque<>();
     private int defaultStatusColor;
+    private int renderedLogVersion = -1;
 
-    private boolean running;
-    private String target;
-    private long startTimeMs;
-    private Long durationMs;
-    private boolean userStopRequested;
-    private boolean durationReached;
-    private volatile String fatalError;
-
-    private volatile int sent;
-    private volatile int lost;
-    private volatile int latencySamples;
-    private volatile double minMs;
-    private volatile double maxMs;
-    private volatile double sumMs;
-
-    private final Runnable autoStopRunnable = () -> {
-        durationReached = true;
-        stopTests();
-    };
+    /** Set by the background button so onStopTests leaves the service running. */
+    private boolean sentToBackground;
 
     private final Runnable tick = new Runnable() {
         @Override
         public void run() {
-            if (!running) return;
-            statusText.setText(String.format(Locale.US,
-                    "Running 运行中   目标 Target: %s   已测试时间 Elapsed: %s%s",
-                    target, formatElapsed(elapsedSeconds()),
-                    durationMs == null ? "" : " / " + formatElapsed(durationMs / 1000)));
-            main.postDelayed(this, 1000);
+            render();
+            if (PingService.running) main.postDelayed(this, 1000);
         }
     };
 
@@ -106,6 +84,8 @@ public class PingTestActivity extends BaseTestActivity {
         startButton = addButton("Start Test / 开始测试", this::startTest);
         stopButton = addButton("Stop / 停止", this::stopTest);
         stopButton.setEnabled(false);
+        backgroundButton = addButton("Run in Background / 后台运行", this::runInBackground);
+        backgroundButton.setEnabled(false);
 
         statsText = addInfo("");
         statsText.setTypeface(Typeface.MONOSPACE);
@@ -141,61 +121,71 @@ public class PingTestActivity extends BaseTestActivity {
     // ----------------------------------------------------------------- control
 
     private void startTest() {
-        if (running) return;
+        if (PingService.running) return;
 
-        final String host = hostInput.getText().toString().trim();
+        String host = hostInput.getText().toString().trim();
         if (host.isEmpty()) {
             toast("Enter a server address. 请输入服务器地址。");
             return;
         }
 
-        durationMs = parseDurationMs();
-        target = host;
-        running = true;
-        userStopRequested = false;
-        durationReached = false;
-        fatalError = null;
-        sent = 0;
-        lost = 0;
-        latencySamples = 0;
-        minMs = Double.MAX_VALUE;
-        maxMs = 0;
-        sumMs = 0;
-        startTimeMs = System.currentTimeMillis();
+        // Lazy, per-module permission (PRD §5.4): the ongoing notification needs
+        // POST_NOTIFICATIONS on API 33+. The test still runs without it — only
+        // the notification is hidden — so a refusal does not block the test.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU
+                && !hasPermission(Manifest.permission.POST_NOTIFICATIONS)) {
+            requirePermission(Manifest.permission.POST_NOTIFICATIONS,
+                    () -> launchService(host),
+                    () -> {
+                        toast("通知被限制，测试继续但看不到通知 / notification restricted");
+                        launchService(host);
+                    });
+            return;
+        }
+        launchService(host);
+    }
 
-        logLines.clear();
-        logText.setText("");
-        statusText.setTextColor(defaultStatusColor);
+    private void launchService(String host) {
+        Long minutes = parseDurationMinutes();
+        ContextCompat.startForegroundService(this, new Intent(this, PingService.class)
+                .setAction(PingService.ACTION_START)
+                .putExtra(PingService.EXTRA_HOST, host)
+                .putExtra(PingService.EXTRA_DURATION_MS,
+                        minutes == null ? 0L : minutes * 60_000L));
         startButton.setEnabled(false);
         stopButton.setEnabled(true);
+        backgroundButton.setEnabled(true);
         setInputsEnabled(false);
-        updateStats();
-        main.post(tick);
-
-        main.removeCallbacks(autoStopRunnable);
-        if (durationMs != null) {
-            main.postDelayed(autoStopRunnable, durationMs);
-        }
-
-        runAsync(() -> pingLoop(host));
+        statusText.setTextColor(defaultStatusColor);
+        statusText.setText("Starting… 启动中…");
+        main.removeCallbacks(tick);
+        main.postDelayed(tick, 300);
     }
 
     private void stopTest() {
-        if (!running) return;
-        userStopRequested = true;
-        // The loop notices within one interval; disable the button now so the
-        // operator does not press it twice while the last packet drains.
+        if (!PingService.running) return;
+        // Disable both now so the operator does not press them while the last
+        // packet drains; the loop notices within one interval.
         stopButton.setEnabled(false);
-        stopTests();
+        backgroundButton.setEnabled(false);
+        startService(new Intent(this, PingService.class).setAction(PingService.ACTION_STOP));
     }
 
-    /** Minutes field to milliseconds; null when blank or not a positive number. */
-    private Long parseDurationMs() {
+    /** Sends the test to the background and leaves this page; it keeps running. */
+    private void runInBackground() {
+        if (!PingService.running || PingService.userStopRequested) return;
+        sentToBackground = true;
+        toast("测试已转入后台 / Test running in background");
+        finish();
+    }
+
+    /** Minutes field; null when blank or not a positive number. */
+    private Long parseDurationMinutes() {
         String text = minutesInput.getText().toString().trim();
         if (text.isEmpty()) return null;
         try {
             long minutes = Long.parseLong(text);
-            return minutes > 0 ? minutes * 60_000L : null;
+            return minutes > 0 ? minutes : null;
         } catch (NumberFormatException e) {
             return null;
         }
@@ -206,106 +196,66 @@ public class PingTestActivity extends BaseTestActivity {
         minutesInput.setEnabled(enabled);
     }
 
-    // -------------------------------------------------------------- ping loop
-
-    private void pingLoop(String host) {
-        while (!isStopped()) {
-            long loopStartNs = System.nanoTime();
-            Ping.Result r = Ping.once(host, PING_TIMEOUT_SECONDS);
-            sent++;
-            final int seq = sent;
-
-            if (r.fatalMessage != null) {
-                fatalError = r.fatalMessage;
-                appendLog(seq + ": " + r.fatalMessage);
-                break;
-            }
-            if (r.received) {
-                if (!Double.isNaN(r.rttMs)) {
-                    latencySamples++;
-                    minMs = Math.min(minMs, r.rttMs);
-                    maxMs = Math.max(maxMs, r.rttMs);
-                    sumMs += r.rttMs;
-                }
-                appendLog(String.format(Locale.US, "%d: reply from %s  time=%s ms  ttl=%s",
-                        seq, host,
-                        Double.isNaN(r.rttMs) ? "?" : String.format(Locale.US, "%.1f", r.rttMs),
-                        r.ttl != null ? r.ttl : "?"));
-            } else {
-                lost++;
-                appendLog(seq + ": " + r.failureText());
-            }
-            ui(this::updateStats);
-
-            long elapsedMs = (System.nanoTime() - loopStartNs) / 1_000_000;
-            long sleepMs = PING_INTERVAL_MS - elapsedMs;
-            if (sleepMs > 0) {
-                try {
-                    Thread.sleep(sleepMs);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
-            }
-        }
-        ui(this::onTestFinished);
-    }
-
     // ------------------------------------------------------------------- views
 
-    private void appendLog(String line) {
-        ui(() -> {
-            if (logLines.size() >= MAX_LOG_LINES) logLines.removeFirst();
-            logLines.addLast(line);
-            StringBuilder sb = new StringBuilder();
-            for (String l : logLines) sb.append(l).append('\n');
-            logText.setText(sb.toString());
-            logScroll.post(() -> logScroll.fullScroll(View.FOCUS_DOWN));
-        });
+    /** Renders the service's current state; re-run each tick while it is running. */
+    private void render() {
+        boolean running = PingService.running;
+        boolean stopping = PingService.userStopRequested;
+
+        startButton.setEnabled(!running);
+        stopButton.setEnabled(running && !stopping);
+        backgroundButton.setEnabled(running && !stopping);
+        setInputsEnabled(!running);
+        if (running) fillInputsFromService();
+
+        renderStatus(running, stopping);
+        renderStats();
+        renderLog();
     }
 
-    private void updateStats() {
-        int sentNow = sent;
-        int lostNow = lost;
-        double lossPct = sentNow == 0 ? 0.0 : (100.0 * lostNow / sentNow);
-        String latency = latencySamples > 0
-                ? String.format(Locale.US, "min=%.1f  avg=%.1f  max=%.1f ms",
-                        minMs, sumMs / latencySamples, maxMs)
-                : "N/A";
-        statsText.setText(String.format(Locale.US,
-                "已发送 Sent: %d   丢失 Lost: %d   丢包率 Loss: %.1f%%\n延迟 Latency: %s",
-                sentNow, lostNow, lossPct, latency));
+    /** Shows the running test's target and length when the page is reopened. */
+    private void fillInputsFromService() {
+        if (hostInput.getText().length() == 0 && PingService.target != null) {
+            hostInput.setText(PingService.target);
+        }
+        long durationMs = PingService.durationMs;
+        if (minutesInput.getText().length() == 0 && durationMs > 0) {
+            minutesInput.setText(String.valueOf(durationMs / 60_000L));
+        }
     }
 
-    private long elapsedSeconds() {
-        return (System.currentTimeMillis() - startTimeMs) / 1000;
-    }
-
-    private static String formatElapsed(long totalSeconds) {
-        return String.format(Locale.US, "%02d:%02d:%02d",
-                totalSeconds / 3600, (totalSeconds % 3600) / 60, totalSeconds % 60);
-    }
-
-    private void onTestFinished() {
-        if (!running) return;
-        running = false;
-        main.removeCallbacks(tick);
-        main.removeCallbacks(autoStopRunnable);
-        startButton.setEnabled(true);
-        stopButton.setEnabled(false);
-        setInputsEnabled(true);
-        updateStats();
+    private void renderStatus(boolean running, boolean stopping) {
+        String target = PingService.target;
+        if (running) {
+            statusText.setTextColor(defaultStatusColor);
+            long durationMs = PingService.durationMs;
+            statusText.setText(String.format(Locale.US,
+                    "%s   目标 Target: %s   已测试时间 Elapsed: %s%s",
+                    stopping ? "Stopping 停止中" : "Running 运行中",
+                    target, formatElapsed(elapsedSeconds()),
+                    durationMs > 0 ? " / " + formatElapsed(durationMs / 1000) : ""));
+            return;
+        }
+        if (PingService.endTimeMs == 0) {
+            statusText.setTextColor(defaultStatusColor);
+            statusText.setText("Tap Start. 点击开始测试。");
+            return;
+        }
 
         String elapsed = formatElapsed(elapsedSeconds());
-        String ending = durationReached
+        String ending = PingService.durationReached
                 ? "，已达设定时长 / duration reached"
-                : (userStopRequested ? "，手动停止 / stopped by user" : "");
+                : (PingService.userStopRequested ? "，手动停止 / stopped by user" : "");
+        int sent = PingService.sent;
+        int lost = PingService.lost;
+        String fatal = PingService.fatalError;
 
-        if (fatalError != null) {
+        if (fatal != null) {
             statusText.setTextColor(FAIL_COLOR);
             statusText.setText(String.format(Locale.US,
                     "FAILED 测试失败：%s (%s)，已测试时间 Elapsed %s",
-                    fatalError, target, elapsed));
+                    fatal, target, elapsed));
         } else if (sent == 0) {
             statusText.setTextColor(defaultStatusColor);
             statusText.setText("No packets sent. 未发送任何数据包。");
@@ -322,10 +272,56 @@ public class PingTestActivity extends BaseTestActivity {
         }
     }
 
+    private void renderStats() {
+        int sentNow = PingService.sent;
+        int lostNow = PingService.lost;
+        int samples = PingService.latencySamples;
+        double lossPct = sentNow == 0 ? 0.0 : (100.0 * lostNow / sentNow);
+        String latency = samples > 0
+                ? String.format(Locale.US, "min=%.1f  avg=%.1f  max=%.1f ms",
+                        PingService.minMs, PingService.sumMs / samples, PingService.maxMs)
+                : "N/A";
+        statsText.setText(String.format(Locale.US,
+                "已发送 Sent: %d   丢失 Lost: %d   丢包率 Loss: %.1f%%\n延迟 Latency: %s",
+                sentNow, lostNow, lossPct, latency));
+    }
+
+    private void renderLog() {
+        int version = PingService.logVersion;
+        if (version == renderedLogVersion) return;
+        renderedLogVersion = version;
+        logText.setText(PingService.logText());
+        logScroll.post(() -> logScroll.fullScroll(View.FOCUS_DOWN));
+    }
+
+    private long elapsedSeconds() {
+        long end = PingService.running || PingService.endTimeMs == 0
+                ? System.currentTimeMillis() : PingService.endTimeMs;
+        return (end - PingService.startTimeMs) / 1000;
+    }
+
+    private static String formatElapsed(long totalSeconds) {
+        return String.format(Locale.US, "%02d:%02d:%02d",
+                totalSeconds / 3600, (totalSeconds % 3600) / 60, totalSeconds % 60);
+    }
+
+    // ------------------------------------------------------------- lifecycle
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        render();
+        main.removeCallbacks(tick);
+        if (PingService.running) main.postDelayed(tick, 1000);
+    }
+
     @Override
     protected void onStopTests() {
-        // onPause already raised the stop flag; the loop exits on its next check.
+        // onPause runs when this page is left, including via the background
+        // button. Only a plain leave stops the test; a backgrounded one must not.
         main.removeCallbacks(tick);
-        main.removeCallbacks(autoStopRunnable);
+        if (PingService.running && !sentToBackground) {
+            startService(new Intent(this, PingService.class).setAction(PingService.ACTION_STOP));
+        }
     }
 }

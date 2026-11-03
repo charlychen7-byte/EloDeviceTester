@@ -66,9 +66,9 @@ Two-level navigation (PRD §2):
 `ColorAccuracyActivity`, `MuraActivity`, `TouchAlignmentActivity`) ·
 `touch` (+ `MultiTouchActivity`, `TouchGridActivity`, `TouchSamplingActivity`) ·
 `battery` · `vibrator` · `camera` (CameraX) · `audio` · `gps` · `nfc` ·
-`wifibt` · `sensors` · `barcode` · `msr` · `serial` · `displayext` ·
+`wifi` · `bluetooth` (opens system BT settings) · `sensors` · `barcode` · `serial` · `displayext` ·
 `cellular` · `ping` (+ `PingTestActivity`) · `stability` · `ethernet` (+ `IperfActivity`, also a
-top-level grid module) · `usbotg` · `cashdrawer`
+top-level grid module) · `usbotg` · `cashdrawer` · `payment` (placeholder, no tests yet)
 
 ## Known device-dependent / best-effort items
 
@@ -108,6 +108,11 @@ erroring (see PRD "实现说明" notes):
   steepens a discharge curve. CSV goes to `getExternalFilesDir()/battery/` — no storage
   permission, pullable with adb. POST_NOTIFICATIONS is requested lazily; if denied the
   service still records, only the notification is hidden.
+- **Custom Ping background run** — the loop lives in `PingService`, a `specialUse`
+  foreground service, so the "后台运行" button can leave the page while it keeps going.
+  The button is enabled only while a test runs and is disabled once Stop is pressed.
+  Re-entering the page reattaches to the running test. Any other way of leaving the page
+  stops it.
 - **Battery live current** — many ROMs return 0/unreadable → shown as "不支持".
 - **DDR bandwidth** — Java array copy is a *relative* figure, not physical bandwidth.
 - **DDR memtester / QMESA** — bundled prebuilt arm64-v8a native binaries, packaged as
@@ -121,8 +126,6 @@ erroring (see PRD "实现说明" notes):
 - **Wi-Fi scan** — throttled by the system and needs location permission + services on.
 - **Barcode symbology** — wedge-mode scanners only transmit the decoded text,
   not the barcode format (Code128/QR/etc.); the field is intentionally omitted.
-- **MSR IC/contactless response** — shown as raw bytes from the attached
-  serial reader, not a parsed ATR; the exact protocol is reader-specific.
 - **Audio latency** — an approximate round-trip figure from mic self-capture,
   affected by acoustic crosstalk and scheduling jitter; not lab-grade.
 - **Multi-camera enumeration** — some OEMs hide extra back cameras

@@ -6,8 +6,11 @@ import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
+import android.view.GestureDetector;
 import android.view.Gravity;
+import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewConfiguration;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
@@ -21,9 +24,10 @@ import java.util.concurrent.Executors;
 
 /**
  * Fullscreen viewer for the Elo color test patterns. Stretches the current
- * pattern to fill the whole screen (FIT_XY); tap advances to the next pattern
- * (wraps), Back returns to the grid. At most one full-res bitmap is held in
- * memory; the previous one is recycled on each load (PRD §5.5).
+ * pattern to fill the whole screen (FIT_XY); a horizontal swipe moves to the
+ * previous (swipe right) or next (swipe left) pattern, wrapping at the ends.
+ * Back returns to the grid. At most one full-res bitmap is held in memory;
+ * the previous one is recycled on each load (PRD §5.5).
  */
 public class EloColorPatternViewerActivity extends ImmersiveActivity {
 
@@ -38,6 +42,9 @@ public class EloColorPatternViewerActivity extends ImmersiveActivity {
 
     private final ExecutorService io = Executors.newSingleThreadExecutor();
     private final Handler main = new Handler(Looper.getMainLooper());
+    private GestureDetector swipeDetector;
+    private int minSwipeDistance;
+    private int minSwipeVelocity;
 
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -68,13 +75,36 @@ public class EloColorPatternViewerActivity extends ImmersiveActivity {
         hlp.topMargin = 48;
         root.addView(hint, hlp);
 
-        root.setOnClickListener(v -> {
-            hint.setVisibility(View.GONE);
-            index = (index + 1) % assets.length;
-            load();
+        ViewConfiguration config = ViewConfiguration.get(this);
+        minSwipeDistance = 10 * config.getScaledPagingTouchSlop();
+        minSwipeVelocity = config.getScaledMinimumFlingVelocity();
+        swipeDetector = new GestureDetector(this, new GestureDetector.SimpleOnGestureListener() {
+            @Override
+            public boolean onDown(MotionEvent e) {
+                return true;
+            }
+
+            @Override
+            public boolean onFling(MotionEvent e1, MotionEvent e2, float velocityX, float velocityY) {
+                if (e1 == null || e2 == null) return false;
+                float dx = e2.getX() - e1.getX();
+                float dy = e2.getY() - e1.getY();
+                if (Math.abs(dx) < minSwipeDistance || Math.abs(dx) <= Math.abs(dy)) return false;
+                if (Math.abs(velocityX) < minSwipeVelocity) return false;
+                // Swipe left shows the next pattern, swipe right the previous one.
+                step(dx < 0 ? 1 : -1);
+                return true;
+            }
         });
+        root.setOnTouchListener((v, event) -> swipeDetector.onTouchEvent(event));
 
         setContentView(root);
+        load();
+    }
+
+    private void step(int delta) {
+        hint.setVisibility(View.GONE);
+        index = (index + delta + assets.length) % assets.length;
         load();
     }
 

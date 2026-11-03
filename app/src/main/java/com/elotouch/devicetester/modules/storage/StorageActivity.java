@@ -1,6 +1,11 @@
 package com.elotouch.devicetester.modules.storage;
 
+import android.app.usage.StorageStatsManager;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
 import android.os.StatFs;
+import android.os.storage.StorageManager;
+import android.text.format.Formatter;
 import android.widget.TextView;
 
 import com.elotouch.devicetester.core.BaseTestActivity;
@@ -35,21 +40,56 @@ public class StorageActivity extends BaseTestActivity {
         refreshInfo();
         addButton("Refresh Info / 刷新存储信息", this::refreshInfo);
 
+        addSectionTitle("Settings / 设置");
+        addButton("Open Storage settings 打开存储设置", this::openStorageSettings);
+
         addSectionTitle("Read/Write Speed (" + FILE_MB + "MB, auto-deleted) / 读写速度（"
                 + FILE_MB + "MB，测试后自动销毁）");
         speedText = addInfo("Tap to start. 点击开始测试。");
         addButton("Start R/W Test / 开始读写测试", this::runSpeed);
     }
 
+    /**
+     * Opens Settings > Storage. Tries the action first, then the AOSP
+     * StorageDashboardActivity by explicit component, since some builds
+     * do not register the action.
+     */
+    private void openStorageSettings() {
+        Intent[] candidates = {
+                new Intent("android.settings.INTERNAL_STORAGE_SETTINGS"),
+                new Intent().setClassName("com.android.settings",
+                        "com.android.settings.Settings$StorageDashboardActivity"),
+        };
+        for (Intent intent : candidates) {
+            try {
+                startActivity(intent);
+                return;
+            } catch (ActivityNotFoundException | SecurityException e) {
+                // Try the next candidate.
+            }
+        }
+        toast("Storage settings not available. 无法打开存储设置。");
+    }
+
     private void refreshInfo() {
-        StatFs stat = new StatFs(getFilesDir().getAbsolutePath());
-        long block = stat.getBlockSizeLong();
-        long total = stat.getBlockCountLong() * block;
-        long avail = stat.getAvailableBlocksLong() * block;
+        long total;
+        long avail;
+        try {
+            // Same source as Settings > Storage, so the numbers match the system UI.
+            StorageStatsManager ssm = getSystemService(StorageStatsManager.class);
+            total = ssm.getTotalBytes(StorageManager.UUID_DEFAULT);
+            avail = ssm.getFreeBytes(StorageManager.UUID_DEFAULT);
+        } catch (Exception e) {
+            StatFs stat = new StatFs(getFilesDir().getAbsolutePath());
+            total = stat.getBlockCountLong() * stat.getBlockSizeLong();
+            avail = stat.getAvailableBytes();
+        }
         long used = total - avail;
         infoText.setText(String.format(Locale.US,
                 "Total 总容量：%s\nUsed 已用空间：%s\nAvailable 可用空间：%s",
-                fmt(total), fmt(used), fmt(avail)));
+                Formatter.formatFileSize(this, total),
+                Formatter.formatFileSize(this, used),
+                Formatter.formatFileSize(this, avail)));
     }
 
     private void runSpeed() {
@@ -96,11 +136,5 @@ public class StorageActivity extends BaseTestActivity {
                     tmp.delete();
             }
         });
-    }
-
-    private static String fmt(long bytes) {
-        double gb = bytes / (1024.0 * 1024.0 * 1024.0);
-        if (gb >= 1) return String.format(Locale.US, "%.2f GB", gb);
-        return String.format(Locale.US, "%.0f MB", bytes / (1024.0 * 1024.0));
     }
 }

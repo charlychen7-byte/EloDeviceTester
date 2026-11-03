@@ -61,6 +61,7 @@ public class EloDrawSettingsActivity extends AppCompatActivity {
         root.addView(header("Drawing options / 绘图选项"));
 
         final RadioButton rbDrawLine = new RadioButton(this);
+        rbDrawLine.setId(View.generateViewId());
         rbDrawLine.setText("Draw line / 画线");
         rbDrawLine.setChecked(drawLine);
 
@@ -77,10 +78,12 @@ public class EloDrawSettingsActivity extends AppCompatActivity {
         cbShowPoints.setChecked(showPoints);
 
         final RadioButton rbPointsOnly = new RadioButton(this);
+        rbPointsOnly.setId(View.generateViewId());
         rbPointsOnly.setText("Draw touch points only / 仅画触点");
         rbPointsOnly.setChecked(pointsOnly);
 
         final RadioButton rbGridTest = new RadioButton(this);
+        rbGridTest.setId(View.generateViewId());
         rbGridTest.setText("Grid touch test / 网格触控测试");
         rbGridTest.setChecked(gridTest);
 
@@ -176,6 +179,7 @@ public class EloDrawSettingsActivity extends AppCompatActivity {
 
     private RadioButton sizeButton(String label, int mm) {
         RadioButton rb = new RadioButton(this);
+        rb.setId(View.generateViewId());
         rb.setText(label);
         rb.setChecked(gridSizeMM == mm);
         return rb;

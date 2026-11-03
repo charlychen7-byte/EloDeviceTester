@@ -4,13 +4,10 @@ import android.app.Presentation;
 import android.content.Context;
 import android.graphics.Color;
 import android.hardware.display.DisplayManager;
-import android.net.ConnectivityManager;
-import android.net.LinkProperties;
-import android.net.Network;
-import android.net.NetworkCapabilities;
 import android.os.Bundle;
 import android.view.Display;
 import android.view.Gravity;
+import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.TextView;
 
@@ -18,35 +15,47 @@ import androidx.annotation.Nullable;
 
 import com.elotouch.devicetester.core.BaseTestActivity;
 
-import java.net.InetAddress;
-import java.util.Locale;
-
 /**
- * Secondary display & wired network module (PRD §3.16). Both sub-features are
- * pluggable peripherals — a docked customer display or an Ethernet dongle —
- * so this page detects them live rather than the grid greying out (PRD §5.3).
+ * Secondary display module (PRD §3.16). The customer display is a pluggable
+ * peripheral, so this page detects it live rather than the grid greying out (PRD §5.3).
+ *
+ * Two modes:
+ *  - 同屏 (same screen): main and secondary screens show the same colour, and tapping either
+ *    screen changes both.
+ *  - 异屏 (different screen): each screen shows its own colour and is cycled independently.
  */
 public class DisplayExtActivity extends BaseTestActivity {
 
+    private static final int[] COLORS = {Color.RED, Color.GREEN, Color.BLUE, Color.WHITE, Color.BLACK};
+
+    private enum Mode { NONE, SAME, DIFFERENT }
+
     private TextView displayText;
-    private TextView networkText;
+    private View mainPreview;
     private PatternPresentation presentation;
+    private Mode mode = Mode.NONE;
+    private int mainIndex = 0;
+    private int subIndex = 0;
 
     @Override
     protected String title() {
-        return "Display Ext 双屏/网络测试";
+        return "Display Ext 双屏测试";
     }
 
     @Override
     protected void buildUi() {
-        addSectionTitle("Secondary Display / 客显副屏输出");
+        addSectionTitle("Secondary Display / 客显副屏");
         displayText = addInfo("");
-        addButton("Show Test Pattern / 推送测试图案到副屏", this::showPattern);
+        addButton("同屏显示 Same-screen / 主屏与副屏显示相同颜色", () -> startMode(Mode.SAME));
+        addButton("异屏显示 Different-screen / 主屏与副屏独立显示", () -> startMode(Mode.DIFFERENT));
         addButton("Dismiss / 关闭副屏图案", this::dismissPattern);
 
-        addSectionTitle("Wired Network / 有线网络");
-        networkText = addInfo("");
-        addButton("Ping Test / Ping 连通性测试", this::pingTest);
+        addSectionTitle("Main Screen / 主屏图案（点击切换颜色）");
+        mainPreview = new View(this);
+        mainPreview.setMinimumHeight(dp(160));
+        mainPreview.setOnClickListener(v -> onMainTap());
+        mainPreview.setVisibility(View.GONE);
+        addView(mainPreview);
 
         refresh();
     }
@@ -58,47 +67,33 @@ public class DisplayExtActivity extends BaseTestActivity {
     }
 
     private void refresh() {
-        DisplayManager dm = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
-        Display[] displays = dm.getDisplays();
-        int extra = 0;
-        for (Display d : displays) if (d.getDisplayId() != Display.DEFAULT_DISPLAY) extra++;
-        displayText.setText(extra > 0
-                ? extra + " secondary display(s) found 检测到副屏：" + extra
+        displayText.setText(findSecondary() != null
+                ? "Secondary display detected 已检测到副屏"
                 : "No secondary display detected. 未检测到副屏，请连接客显后重试。");
-
-        ConnectivityManager cm = (ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
-        boolean ethernetUp = false;
-        StringBuilder ips = new StringBuilder();
-        for (Network net : cm.getAllNetworks()) {
-            NetworkCapabilities caps = cm.getNetworkCapabilities(net);
-            if (caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET)) {
-                ethernetUp = true;
-                LinkProperties lp = cm.getLinkProperties(net);
-                if (lp != null) {
-                    for (android.net.LinkAddress a : lp.getLinkAddresses()) {
-                        ips.append(a.getAddress().getHostAddress()).append(' ');
-                    }
-                }
-            }
-        }
-        boolean finalEthernetUp = ethernetUp;
-        networkText.setText(finalEthernetUp
-                ? "Ethernet connected 已连接：" + ips
-                : "No Ethernet link detected. 未检测到以太网连接。");
     }
 
-    private void showPattern() {
+    private Display findSecondary() {
         DisplayManager dm = (DisplayManager) getSystemService(Context.DISPLAY_SERVICE);
-        Display[] displays = dm.getDisplays();
-        for (Display d : displays) {
-            if (d.getDisplayId() != Display.DEFAULT_DISPLAY) {
-                dismissPattern();
-                presentation = new PatternPresentation(this, d);
-                presentation.show();
-                return;
-            }
+        for (Display d : dm.getDisplays()) {
+            if (d.getDisplayId() != Display.DEFAULT_DISPLAY) return d;
         }
-        toast("No secondary display. 未检测到副屏。");
+        return null;
+    }
+
+    private void startMode(Mode next) {
+        Display secondary = findSecondary();
+        if (secondary == null) {
+            toast("No secondary display. 未检测到副屏。");
+            return;
+        }
+        dismissPattern();
+        mode = next;
+        subIndex = next == Mode.SAME ? mainIndex : (mainIndex + 1) % COLORS.length;
+        String label = next == Mode.SAME ? "同屏显示" : "异屏显示";
+        presentation = new PatternPresentation(this, secondary, label, this::onSubTap);
+        presentation.show();
+        mainPreview.setVisibility(View.VISIBLE);
+        refreshColors();
     }
 
     private void dismissPattern() {
@@ -106,24 +101,25 @@ public class DisplayExtActivity extends BaseTestActivity {
             presentation.dismiss();
             presentation = null;
         }
+        mode = Mode.NONE;
+        if (mainPreview != null) mainPreview.setVisibility(View.GONE);
     }
 
-    private void pingTest() {
-        networkText.setText("Pinging… Ping 中…");
-        runAsync(() -> {
-            try {
-                long t0 = System.nanoTime();
-                InetAddress addr = InetAddress.getByName("8.8.8.8");
-                boolean reachable = addr.isReachable(3000);
-                long ms = (System.nanoTime() - t0) / 1_000_000;
-                String msg = reachable
-                        ? String.format(Locale.US, "Ping 8.8.8.8 OK 成功：%d ms", ms)
-                        : "Ping timeout (3s) 超时。";
-                ui(() -> networkText.setText(msg));
-            } catch (Exception e) {
-                ui(() -> networkText.setText("Ping failed Ping 失败：" + e.getMessage()));
-            }
-        });
+    private void onMainTap() {
+        mainIndex = (mainIndex + 1) % COLORS.length;
+        if (mode == Mode.SAME) subIndex = mainIndex;
+        refreshColors();
+    }
+
+    private void onSubTap() {
+        subIndex = (subIndex + 1) % COLORS.length;
+        if (mode == Mode.SAME) mainIndex = subIndex;
+        refreshColors();
+    }
+
+    private void refreshColors() {
+        mainPreview.setBackgroundColor(COLORS[mainIndex]);
+        if (presentation != null) presentation.setColor(COLORS[subIndex]);
     }
 
     @Override
@@ -132,31 +128,34 @@ public class DisplayExtActivity extends BaseTestActivity {
     }
 
     private static class PatternPresentation extends Presentation {
-        private static final int[] COLORS = {Color.RED, Color.GREEN, Color.BLUE, Color.WHITE, Color.BLACK};
-        private int index = 0;
+        private final String label;
+        private final Runnable onTap;
+        private FrameLayout root;
 
-        PatternPresentation(Context outerContext, Display display) {
+        PatternPresentation(Context outerContext, Display display, String label, Runnable onTap) {
             super(outerContext, display);
+            this.label = label;
+            this.onTap = onTap;
         }
 
         @Override
         protected void onCreate(@Nullable Bundle savedInstanceState) {
             super.onCreate(savedInstanceState);
-            FrameLayout root = new FrameLayout(getContext());
-            root.setBackgroundColor(COLORS[0]);
+            root = new FrameLayout(getContext());
             TextView hint = new TextView(getContext());
-            hint.setText("Elo DeviceTester — Secondary Display Test\n客显测试图案 · 点击切换颜色");
+            hint.setText("Elo DeviceTester — Secondary Display Test\n" + label + " · 点击切换颜色");
             hint.setTextColor(Color.DKGRAY);
             hint.setTextSize(16);
             FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT);
             lp.gravity = Gravity.CENTER;
             root.addView(hint, lp);
-            root.setOnClickListener(v -> {
-                index = (index + 1) % COLORS.length;
-                root.setBackgroundColor(COLORS[index]);
-            });
+            root.setOnClickListener(v -> onTap.run());
             setContentView(root);
+        }
+
+        void setColor(int color) {
+            if (root != null) root.setBackgroundColor(color);
         }
     }
 }

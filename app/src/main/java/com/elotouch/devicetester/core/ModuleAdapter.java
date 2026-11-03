@@ -7,6 +7,7 @@ import android.graphics.drawable.GradientDrawable;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -53,6 +54,12 @@ public class ModuleAdapter extends RecyclerView.Adapter<ModuleAdapter.Holder> {
         bg.setStroke(dp(1), Color.parseColor("#E0E0E0"));
         cell.setBackground(bg);
 
+        // Vector icons get their own ImageView: an empty emoji TextView still
+        // reserves a 34sp line, which pushes the module name out of the cell.
+        ImageView iconImage = new ImageView(context);
+        iconImage.setVisibility(View.GONE);
+        cell.addView(iconImage);
+
         TextView icon = new TextView(context);
         icon.setTextSize(34);
         icon.setGravity(Gravity.CENTER);
@@ -71,7 +78,7 @@ public class ModuleAdapter extends RecyclerView.Adapter<ModuleAdapter.Holder> {
         status.setTextColor(Color.parseColor("#9E9E9E"));
         cell.addView(status);
 
-        return new Holder(cell, icon, name, status);
+        return new Holder(cell, iconImage, icon, name, status);
     }
 
     @Override
@@ -79,7 +86,15 @@ public class ModuleAdapter extends RecyclerView.Adapter<ModuleAdapter.Holder> {
         TestModule module = modules[position];
         boolean available = HardwareDetector.isAvailable(context, module.feature);
 
-        h.icon.setText(module.icon);
+        if (module.iconRes != 0) {
+            h.iconImage.setImageResource(module.iconRes);
+            h.iconImage.setVisibility(View.VISIBLE);
+            h.icon.setVisibility(View.GONE);
+        } else {
+            h.icon.setText(module.icon);
+            h.icon.setVisibility(View.VISIBLE);
+            h.iconImage.setVisibility(View.GONE);
+        }
         h.name.setText(module.title);
 
         if (available) {
@@ -106,10 +121,12 @@ public class ModuleAdapter extends RecyclerView.Adapter<ModuleAdapter.Holder> {
     }
 
     static class Holder extends RecyclerView.ViewHolder {
+        final ImageView iconImage;
         final TextView icon, name, status;
 
-        Holder(View itemView, TextView icon, TextView name, TextView status) {
+        Holder(View itemView, ImageView iconImage, TextView icon, TextView name, TextView status) {
             super(itemView);
+            this.iconImage = iconImage;
             this.icon = icon;
             this.name = name;
             this.status = status;
