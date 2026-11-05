@@ -1,6 +1,7 @@
 package com.elotouch.devicetester.modules.wifi;
 
 import android.Manifest;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
@@ -14,11 +15,14 @@ import android.provider.Settings;
 import android.widget.TextView;
 
 import com.elotouch.devicetester.core.BaseTestActivity;
+import com.elotouch.devicetester.modules.ethernet.IperfActivity;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.Inet4Address;
 
 /**
- * Wi-Fi module (PRD §3.10): shows the current connection (SSID, IP, BSSID,
+ * Wi-Fi module: shows the current connection (SSID, IP, BSSID,
  * RSSI, channel/band) and a shortcut to the system Wi-Fi settings.
  * Location permission is requested when the page opens, since SSID/BSSID
  * are hidden without it.
@@ -51,11 +55,28 @@ public class WifiActivity extends BaseTestActivity {
 
         addSectionTitle("Wi-Fi");
         wifiText = addInfo("Loading… 加载中…");
-        addButton("Wi-Fi Settings / 打开 Wi-Fi 设置",
-                () -> startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS)));
+        addButton("Wi-Fi Settings / 打开 Wi-Fi 设置", this::openWifiSettings);
+
+        addInfo("Open Settings to check Wifi Mac");
+        addInfo("Before checking, make sure Wifi on");
+        addButton("Open About settings", this::openAboutSettings);
+
+        addSectionTitle("Speed Test");
+        addInfo("Runs speed test by using iPerf3 to measure wifi download/upload throughput.");
+        addButton("Enter Test",
+                () -> startActivity(new Intent(this, IperfActivity.class)));
 
         // SSID/BSSID need location permission on API 27+; the rest of the page works without it.
         requirePermission(Manifest.permission.ACCESS_FINE_LOCATION, this::refresh, this::refresh);
+    }
+
+    /** Opens the system Wi-Fi settings page (the device's current Wi-Fi screen). */
+    private void openWifiSettings() {
+        try {
+            startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
+        } catch (ActivityNotFoundException e) {
+            toast("No Wi-Fi settings page on this device. 本设备没有 Wi-Fi 设置页面。");
+        }
     }
 
     @Override
@@ -72,6 +93,16 @@ public class WifiActivity extends BaseTestActivity {
         main.removeCallbacks(periodicRefresh);
     }
 
+    private void openAboutSettings() {
+        try {
+            // "About phone" is where the device model is shown; the same page
+            // the Bluetooth module opens.
+            startActivity(new Intent(Settings.ACTION_DEVICE_INFO_SETTINGS));
+        } catch (ActivityNotFoundException e) {
+            toast("About settings not available. 无法打开设置。");
+        }
+    }
+
     @SuppressWarnings("deprecation") // getConnectionInfo() is deprecated on API 31+, but it is still the way to read RSSI/BSSID/frequency here
     private void refresh() {
         if (wifiManager == null) {
@@ -84,12 +115,13 @@ public class WifiActivity extends BaseTestActivity {
 
         Network network = connectivityManager.getActiveNetwork();
         NetworkCapabilities caps = network == null ? null : connectivityManager.getNetworkCapabilities(network);
-        if (caps == null || !caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) {
-            sb.append("连接状态 Status：Not connected 未连接");
-        } else {
-            WifiInfo info = wifiManager.getConnectionInfo();
-            sb.append("连接状态 Status：Connected 已连接\n");
-            sb.append("SSID：").append(ssid(info, locationGranted)).append('\n');
+        boolean connected = caps != null && caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
+        WifiInfo info = wifiManager.getConnectionInfo();
+
+        sb.append(connected ? "连接状态 Status：Connected 已连接\n" : "连接状态 Status：Not connected 未连接\n");
+        sb.append("Device Wifi MAC：").append(deviceMac());
+        if (connected) {
+            sb.append("\nSSID：").append(ssid(info, locationGranted)).append('\n');
             sb.append("IP Address：").append(ipAddress(network)).append('\n');
             sb.append("BSSID：").append(bssid(info, locationGranted)).append('\n');
             sb.append("RSSI：").append(info.getRssi()).append(" dBm\n");
@@ -99,6 +131,26 @@ public class WifiActivity extends BaseTestActivity {
             sb.append("\n\n权限受限：SSID / BSSID 需要定位权限。");
         }
         wifiText.setText(sb.toString());
+    }
+
+    /**
+     * Device WLAN MAC, read the same way the system Settings "About" page does:
+     * WifiManager.getFactoryMacAddresses() (a @SystemApi, so it is called reflectively).
+     * Ordinary apps may be denied this call; in that case we show "Unknown".
+     */
+    private String deviceMac() {
+        try {
+            Method m = WifiManager.class.getMethod("getFactoryMacAddresses");
+            String[] macs = (String[]) m.invoke(wifiManager);
+            if (macs != null && macs.length > 0 && macs[0] != null && !macs[0].isEmpty()) {
+                return macs[0];
+            }
+        } catch (InvocationTargetException e) {
+            // Usually SecurityException: this app lacks the privileged Wi-Fi permission.
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+            // API not present on this build.
+        }
+        return "Unknown 未知";
     }
 
     private static String ssid(WifiInfo info, boolean locationGranted) {

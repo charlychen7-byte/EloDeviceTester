@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Speedometer gauge with needle (speed test). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="40dp"
+    android:height="40dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <!-- Gauge arc, 180 degrees over the top. -->
+    <path
+        android:strokeColor="#FF212121"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M3.5,16 A8.5,8.5 0 0 1 20.5,16" />
+    <!-- Needle pointing up-right. -->
+    <path
+        android:strokeColor="#FF212121"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M12,16 L16.5,10.5" />
+    <!-- Hub. -->
+    <path
+        android:fillColor="#FF212121"
+        android:pathData="M12,14.2 A1.8,1.8 0 1 1 12,17.8 A1.8,1.8 0 1 1 12,14.2 Z" />
+    <!-- Base bar. -->
+    <path
+        android:strokeColor="#FF212121"
+        android:strokeWidth="2.2"
+        android:strokeLineCap="round"
+        android:pathData="M5,20.5 L19,20.5" />
+</vector>

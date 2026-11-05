@@ -19,7 +19,7 @@ import com.elotouch.devicetester.core.BaseTestActivity;
 import java.util.Locale;
 
 /**
- * Battery & Power module (PRD §3.12): live status (level, voltage,
+ * Battery & Power module: live status (level, voltage,
  * temperature, health, charge status and charge type) plus a charge/discharge
  * test that logs one CSV record per minute.
  *

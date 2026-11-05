@@ -10,9 +10,6 @@ import android.widget.TextView;
 
 import com.elotouch.devicetester.core.BaseTestActivity;
 
-import java.net.InetAddress;
-import java.util.Locale;
-
 /**
  * Cellular / network connectivity module (PRD §3.17). Only shown on devices
  * with telephony hardware (HardwareDetector.Feature.CELLULAR); Wi-Fi-only
@@ -25,7 +22,6 @@ public class CellularActivity extends BaseTestActivity {
     private TelephonyManager tm;
     private TextView simText;
     private TextView signalText;
-    private TextView dataText;
     private boolean listening = false;
 
     private final PhoneStateListener listener = new PhoneStateListener() {
@@ -50,10 +46,6 @@ public class CellularActivity extends BaseTestActivity {
         addSectionTitle("Signal Strength / 信号强度");
         signalText = addInfo("Not started. 尚未开始。");
 
-        addSectionTitle("Mobile Data / 移动数据连通性");
-        dataText = addInfo("Not started. 尚未开始。");
-        addButton("Ping Test / Ping 连通性测试", this::pingTest);
-
         requirePermission(Manifest.permission.READ_PHONE_STATE, this::start,
                 () -> simText.setText("Permission denied. 权限受限：未授予电话状态权限。"));
     }
@@ -70,24 +62,6 @@ public class CellularActivity extends BaseTestActivity {
             tm.listen(listener, PhoneStateListener.LISTEN_SIGNAL_STRENGTHS);
             listening = true;
         }
-    }
-
-    private void pingTest() {
-        dataText.setText("Pinging… Ping 中…");
-        runAsync(() -> {
-            try {
-                long t0 = System.nanoTime();
-                InetAddress addr = InetAddress.getByName("8.8.8.8");
-                boolean reachable = addr.isReachable(3000);
-                long ms = (System.nanoTime() - t0) / 1_000_000;
-                String msg = reachable
-                        ? String.format(Locale.US, "Ping 8.8.8.8 OK 成功：%d ms", ms)
-                        : "Ping timeout (3s) 超时，请检查移动数据是否开启。";
-                ui(() -> dataText.setText(msg));
-            } catch (Exception e) {
-                ui(() -> dataText.setText("Ping failed Ping 失败：" + e.getMessage()));
-            }
-        });
     }
 
     @Override

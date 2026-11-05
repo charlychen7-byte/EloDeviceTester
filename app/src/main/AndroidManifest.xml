@@ -32,6 +32,9 @@
         tools:targetApi="s" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT"
         tools:targetApi="s" />
+    <!-- iBeacon module: advertising an iBeacon frame (API 31+ runtime permission) -->
+    <uses-permission android:name="android.permission.BLUETOOTH_ADVERTISE"
+        tools:targetApi="s" />
 
     <!-- Cellular / Telephony -->
     <uses-permission android:name="android.permission.READ_PHONE_STATE" />
@@ -147,7 +150,11 @@
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.wifi.WifiActivity"
             android:screenOrientation="nosensor" />
+        <activity android:name=".modules.platform.PlatformInfoActivity"
+            android:screenOrientation="nosensor" />
         <activity android:name=".modules.bluetooth.BluetoothActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.ibeacon.IBeaconActivity"
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.sensors.SensorsActivity"
             android:screenOrientation="nosensor" />
@@ -163,8 +170,6 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="battery charge/discharge diagnostic logging for after-sales inspection" />
         </service>
-        <activity android:name=".modules.barcode.BarcodeActivity"
-            android:screenOrientation="nosensor" />
         <activity android:name=".modules.serial.SerialActivity"
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.displayext.DisplayExtActivity"
@@ -174,6 +179,8 @@
         <activity android:name=".modules.ethernet.IperfActivity"
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.cellular.CellularActivity"
+            android:screenOrientation="nosensor" />
+        <activity android:name=".modules.speedtest.SpeedTestWebActivity"
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.stability.StabilityActivity"
             android:screenOrientation="nosensor" />
@@ -191,7 +198,7 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="continuous network ping for link-stability diagnostics after-sales inspection" />
         </service>
-        <activity android:name=".modules.usbotg.UsbOtgActivity"
+        <activity android:name=".modules.usbstorage.UsbStorageActivity"
             android:screenOrientation="nosensor" />
         <activity android:name=".modules.cashdrawer.CashDrawerActivity"
             android:screenOrientation="nosensor" />

@@ -8,7 +8,7 @@ import com.elotouch.devicetester.core.BaseTestActivity;
 import java.util.Locale;
 
 /**
- * Display module menu (PRD §3.6): launches the fullscreen dead-pixel/solid-color
+ * Display module menu: launches the fullscreen dead-pixel/solid-color
  * test and grayscale test, and shows the screen's nominal refresh rate.
  */
 public class DisplayActivity extends BaseTestActivity {

@@ -91,15 +91,18 @@ public class BluetoothActivity extends BaseTestActivity {
     }
 
     /**
-     * Tries the standard Bluetooth action first, then the AOSP Bluetooth page
-     * by explicit component, since some builds ignore the action and land on
-     * the Settings home screen.
+     * Tries the standard Bluetooth action first. On the target ROM it opens the
+     * "Connected devices" page (已连接的设备), which holds the Bluetooth entry.
+     * If that is unavailable, falls back to the same page by explicit component,
+     * then to the Settings home screen. (The AOSP BluetoothSettings fragment is
+     * not an Activity on this ROM, so it is not used.)
      */
     private void openBluetoothSettings() {
         Intent[] candidates = {
                 new Intent(Settings.ACTION_BLUETOOTH_SETTINGS),
                 new Intent().setClassName("com.android.settings",
-                        "com.android.settings.bluetooth.BluetoothSettings"),
+                        "com.android.settings.Settings$ConnectedDeviceDashboardActivity"),
+                new Intent(Settings.ACTION_SETTINGS),
         };
         for (Intent intent : candidates) {
             try {

@@ -44,7 +44,7 @@ import java.util.Locale;
 import java.util.function.Consumer;
 
 /**
- * Audio module (PRD §3.8): play tones through the earpiece and the speaker via
+ * Audio module: play tones through the earpiece and the speaker via
  * audio-route switching, and record from the mic then play it back.
  */
 public class AudioActivity extends BaseTestActivity {

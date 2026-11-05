@@ -66,9 +66,9 @@ Two-level navigation (PRD §2):
 `ColorAccuracyActivity`, `MuraActivity`, `TouchAlignmentActivity`) ·
 `touch` (+ `MultiTouchActivity`, `TouchGridActivity`, `TouchSamplingActivity`) ·
 `battery` · `vibrator` · `camera` (CameraX) · `audio` · `gps` · `nfc` ·
-`wifi` · `bluetooth` (opens system BT settings) · `sensors` · `barcode` · `serial` · `displayext` ·
+`wifi` · `bluetooth` (opens system BT settings) · `ibeacon` (BLE scan / GATT connect / iBeacon advertising) · `sensors` · `serial` · `displayext` ·
 `cellular` · `ping` (+ `PingTestActivity`) · `stability` · `ethernet` (+ `IperfActivity`, also a
-top-level grid module) · `usbotg` · `cashdrawer` · `payment` (placeholder, no tests yet)
+top-level grid module) · `usbstorage` · `cashdrawer` · `payment` (placeholder, no tests yet)
 
 ## Known device-dependent / best-effort items
 
@@ -124,8 +124,6 @@ erroring (see PRD "实现说明" notes):
   filter kills with SIGSYS — see `docs/vendor/qmesa-seccomp-patch.md`.
 - **Audio earpiece routing** & **secondary mic** — no standard API; approximate.
 - **Wi-Fi scan** — throttled by the system and needs location permission + services on.
-- **Barcode symbology** — wedge-mode scanners only transmit the decoded text,
-  not the barcode format (Code128/QR/etc.); the field is intentionally omitted.
 - **Audio latency** — an approximate round-trip figure from mic self-capture,
   affected by acoustic crosstalk and scheduling jitter; not lab-grade.
 - **Multi-camera enumeration** — some OEMs hide extra back cameras

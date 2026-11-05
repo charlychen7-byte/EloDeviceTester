@@ -13,7 +13,7 @@ import android.hardware.SensorManager;
 public final class HardwareDetector {
 
     public enum Feature {
-        ALWAYS, TOUCH, VIBRATOR, CAMERA, GPS, NFC, WIFI, BLUETOOTH, SENSORS, CELLULAR, USB_HOST
+        ALWAYS, TOUCH, VIBRATOR, CAMERA, GPS, NFC, WIFI, BLUETOOTH, BLE, SENSORS, CELLULAR, USB_HOST
     }
 
     private HardwareDetector() {}
@@ -38,6 +38,8 @@ public final class HardwareDetector {
                 return pm.hasSystemFeature(PackageManager.FEATURE_WIFI);
             case BLUETOOTH:
                 return pm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH);
+            case BLE:
+                return pm.hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE);
             case SENSORS:
                 return hasAnySensor(c);
             case CELLULAR:

@@ -6,7 +6,6 @@ import androidx.annotation.DrawableRes;
 
 import com.elotouch.devicetester.R;
 import com.elotouch.devicetester.modules.audio.AudioActivity;
-import com.elotouch.devicetester.modules.barcode.BarcodeActivity;
 import com.elotouch.devicetester.modules.battery.BatteryActivity;
 import com.elotouch.devicetester.modules.camera.CameraActivity;
 import com.elotouch.devicetester.modules.cashdrawer.CashDrawerActivity;
@@ -18,16 +17,19 @@ import com.elotouch.devicetester.modules.displayext.DisplayExtActivity;
 import com.elotouch.devicetester.modules.ethernet.EthernetActivity;
 import com.elotouch.devicetester.modules.ethernet.IperfActivity;
 import com.elotouch.devicetester.modules.gps.GpsActivity;
+import com.elotouch.devicetester.modules.ibeacon.IBeaconActivity;
 import com.elotouch.devicetester.modules.nfc.NfcActivity;
 import com.elotouch.devicetester.modules.payment.PaymentActivity;
 import com.elotouch.devicetester.modules.ping.PingActivity;
+import com.elotouch.devicetester.modules.platform.PlatformInfoActivity;
 import com.elotouch.devicetester.modules.reboot.RebootStressActivity;
 import com.elotouch.devicetester.modules.sensors.SensorsActivity;
 import com.elotouch.devicetester.modules.serial.SerialActivity;
+import com.elotouch.devicetester.modules.speedtest.SpeedTestWebActivity;
 import com.elotouch.devicetester.modules.stability.StabilityActivity;
 import com.elotouch.devicetester.modules.storage.StorageActivity;
 import com.elotouch.devicetester.modules.touch.TouchActivity;
-import com.elotouch.devicetester.modules.usbotg.UsbOtgActivity;
+import com.elotouch.devicetester.modules.usbstorage.UsbStorageActivity;
 import com.elotouch.devicetester.modules.vibrator.VibratorActivity;
 import com.elotouch.devicetester.modules.bluetooth.BluetoothActivity;
 import com.elotouch.devicetester.modules.wifi.WifiActivity;
@@ -39,6 +41,9 @@ import com.elotouch.devicetester.modules.wifi.WifiActivity;
  * (see {@link HardwareDetector}).
  */
 public enum TestModule {
+    // First in the grid: screen size, Android version, serial number, Model settings.
+    PLATFORM_INFO("Platform Info / 平台信息", "📱", PlatformInfoActivity.class,
+            HardwareDetector.Feature.ALWAYS),
     DDR("DDR / 内存", "🧠", DdrActivity.class, HardwareDetector.Feature.ALWAYS),
     STORAGE("Storage / 存储", "💾", StorageActivity.class, HardwareDetector.Feature.ALWAYS),
     CPU("CPU / 处理器", "⚙️", CpuActivity.class, HardwareDetector.Feature.ALWAYS),
@@ -55,14 +60,19 @@ public enum TestModule {
     // MAC address readout + button to open system Bluetooth settings.
     BLUETOOTH("Bluetooth / 蓝牙", R.drawable.ic_bluetooth, BluetoothActivity.class,
             HardwareDetector.Feature.BLUETOOTH),
+    // iBeacon: BLE scan, GATT connect and advertising. Greyed out without BLE.
+    IBEACON("iBeacon / 信标", R.drawable.ic_ibeacon, IBeaconActivity.class, HardwareDetector.Feature.BLE),
     SENSORS("Sensors / 传感器", "🧭", SensorsActivity.class, HardwareDetector.Feature.SENSORS),
-    //BARCODE("Barcode/QR / 条码扫描", "🔍", BarcodeActivity.class, HardwareDetector.Feature.ALWAYS),
     SERIAL_IO("Serial Port / 串口测试", R.drawable.ic_serial, SerialActivity.class,
             HardwareDetector.Feature.ALWAYS),
     //DISPLAY_EXT("Display Ext / 双屏", "📺", DisplayExtActivity.class, HardwareDetector.Feature.ALWAYS),
-    //ETHERNET("Ethernet / 有线网络", "🔗", EthernetActivity.class, HardwareDetector.Feature.ALWAYS),
-    //CELLULAR("Cellular / 蜂窝网络", "📡", CellularActivity.class, HardwareDetector.Feature.CELLULAR),
+    ETHERNET("Ethernet / 有线网络", "🔗", EthernetActivity.class, HardwareDetector.Feature.ALWAYS),
+    CELLULAR("Cellular / 蜂窝网络", R.drawable.ic_signal, CellularActivity.class,
+            HardwareDetector.Feature.CELLULAR),
     PING("Ping / 连通性", "🌐", PingActivity.class, HardwareDetector.Feature.ALWAYS),
+    // Opens speedtest.net in a WebView; needs network access only.
+    SPEED_TEST("Speed Test / 网速测试", R.drawable.ic_speedtest, SpeedTestWebActivity.class,
+            HardwareDetector.Feature.ALWAYS),
     // Single-test module: goes straight to the iperf3 test page, which already
     // carries its own description, parameters and Start/Stop.
     IPERF("iperf3 / 网络吞吐", "📈", IperfActivity.class, HardwareDetector.Feature.ALWAYS),
@@ -75,9 +85,11 @@ public enum TestModule {
     // disables Start rather than the grid hiding the module, because whether
     // provisioning happened is not a hardware fact.
     REBOOT_STRESS("Reboot Stress / 重启压力", "🔁", RebootStressActivity.class,
+            HardwareDetector.Feature.ALWAYS),
+    // Lists removable (USB/OTG) storage volumes and mass-storage devices; always shown,
+    // the page reports "not detected" itself when nothing is attached.
+    USB_STORAGE("USB Storage / USB 存储", R.drawable.ic_usb, UsbStorageActivity.class,
             HardwareDetector.Feature.ALWAYS);
-    ;
-    //USB_OTG("USB/OTG", "🔌", UsbOtgActivity.class, HardwareDetector.Feature.ALWAYS)
 
     public final String title;
     /** Emoji icon; empty when {@link #iconRes} is set. */

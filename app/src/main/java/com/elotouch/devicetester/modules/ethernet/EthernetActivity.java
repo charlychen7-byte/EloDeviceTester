@@ -1,5 +1,6 @@
 package com.elotouch.devicetester.modules.ethernet;
 
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.net.ConnectivityManager;
@@ -7,6 +8,7 @@ import android.net.LinkProperties;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.provider.Settings;
 import android.widget.Button;
 import android.widget.TextView;
 
@@ -15,6 +17,8 @@ import com.elotouch.devicetester.core.BaseTestActivity;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.net.NetworkInterface;
+import java.net.SocketException;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 import java.util.regex.Matcher;
@@ -37,22 +41,6 @@ public class EthernetActivity extends BaseTestActivity {
 
     private TextView statusText;
     private TextView detailsText;
-    private TextView resultText;
-    private Button startButton;
-    private Button stopButton;
-
-    private static final Pattern TIME_PATTERN = Pattern.compile("time[=<]\\s*([0-9.]+)");
-
-    private volatile boolean ethernetLost;
-    private boolean running;
-    private int sent;
-    private int lost;
-    private int latencySamples;
-    private double minMs;
-    private double maxMs;
-    private double sumMs;
-    private long startTimeMs;
-    private String pingTarget;
 
     private final ConnectivityManager.NetworkCallback ethernetCallback =
             new ConnectivityManager.NetworkCallback() {
@@ -90,19 +78,11 @@ public class EthernetActivity extends BaseTestActivity {
         addSectionTitle("网络信息 / Network Info");
         statusText = addInfo(NOT_DETECTED_MESSAGE);
         detailsText = addInfo("");
+        addButton("Open Ethernet settings 打开以太网设置", this::openEthernetSettings);
 
-        addSectionTitle("连接性压力测试 / Connectivity Stress Test");
-        resultText = addInfo("等待检测到以太网网关… / Waiting for an Ethernet gateway…");
-        startButton = addButton("Start / 开始", this::startStressTest);
-        stopButton = addButton("Stop / 停止", this::stopStressTest);
-        startButton.setEnabled(false);
-        stopButton.setEnabled(false);
-
-        addSectionTitle("iperf3 吞吐测试 / iperf3 Throughput Test");
-        addInfo("Runs the bundled iperf3 client against a server you specify, measuring "
-                + "download/upload throughput.\n"
-                + "运行内置 iperf3 客户端，针对指定服务器测量下载/上传吞吐量。");
-        addButton("Enter Test / 进入测试",
+        addSectionTitle("Speed Test");
+        addInfo("Runs speed test by using iPerf3 to measure download/upload throughput.");
+        addButton("Enter Test",
                 () -> startActivity(new Intent(this, IperfActivity.class)));
     }
 
@@ -161,151 +141,40 @@ public class EthernetActivity extends BaseTestActivity {
         sb.append("DNS: ")
                 .append(snap.dnsServers.isEmpty() ? "N/A" : String.join(", ", snap.dnsServers))
                 .append('\n');
-        String speed = EthernetLinkInfo.describeLinkSpeed(snap.interfaceName);
-        sb.append("链路速率 Link Speed: ").append(speed != null ? speed : "不可获取 / Not available");
         detailsText.setText(sb.toString());
-
-        updateStartButtonAvailability();
     }
 
     private void onEthernetLost() {
         currentGateway = null;
-        ethernetLost = true;
         statusText.setText(NOT_DETECTED_MESSAGE);
         detailsText.setText("");
-        updateStartButtonAvailability();
     }
 
-    private void updateStartButtonAvailability() {
-        boolean canStart = currentGateway != null && !running;
-        startButton.setEnabled(canStart);
-        if (currentGateway == null && !running) {
-            resultText.setText("等待检测到以太网网关… / Waiting for an Ethernet gateway…");
-        }
-    }
-
-    private void startStressTest() {
-        String gateway = currentGateway;
-        if (gateway == null) {
-            resultText.setText("未检测到以太网网关 / No Ethernet gateway detected");
-            return;
-        }
-        pingTarget = gateway;
-        running = true;
-        ethernetLost = false;
-        sent = 0;
-        lost = 0;
-        latencySamples = 0;
-        minMs = Double.MAX_VALUE;
-        maxMs = 0;
-        sumMs = 0;
-        startTimeMs = System.currentTimeMillis();
-        startButton.setEnabled(false);
-        stopButton.setEnabled(true);
-        runAsync(() -> pingLoop(gateway));
-    }
-
-    private void stopStressTest() {
-        stopTests();
-    }
-
-    private void pingLoop(String host) {
-        while (!isStopped() && !ethernetLost) {
-            long loopStartNs = System.nanoTime();
-            PingResult r = pingOnce(host);
-            sent++;
-            if (!r.received) {
-                lost++;
-            } else if (!Double.isNaN(r.rttMs)) {
-                latencySamples++;
-                minMs = Math.min(minMs, r.rttMs);
-                maxMs = Math.max(maxMs, r.rttMs);
-                sumMs += r.rttMs;
-            }
-            ui(this::updateResultText);
-            long elapsedMs = (System.nanoTime() - loopStartNs) / 1_000_000;
-            long sleepMs = 1000 - elapsedMs;
-            if (sleepMs > 0) {
-                try {
-                    Thread.sleep(sleepMs);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    break;
-                }
+    /**
+     * Opens the Ethernet configuration page inside the system Settings app
+     * (the "配置以太网" screen that shows the Eth Mac). This device's Settings
+     * has no public action for it, so the fragment is opened directly through
+     * SubSettings. Falls back to the network settings and then the Settings
+     * home screen if that component is not present.
+     */
+    private void openEthernetSettings() {
+        Intent ethernetPage = new Intent()
+                .setClassName("com.android.settings", "com.android.settings.SubSettings")
+                .putExtra(":settings:show_fragment",
+                        "com.android.settings.ethernet.EthernetSettings");
+        Intent[] candidates = {
+                ethernetPage,
+                new Intent(Settings.ACTION_WIRELESS_SETTINGS),
+                new Intent(Settings.ACTION_SETTINGS),
+        };
+        for (Intent intent : candidates) {
+            try {
+                startActivity(intent);
+                return;
+            } catch (ActivityNotFoundException | SecurityException e) {
+                // Try the next candidate.
             }
         }
-        ui(this::onStressTestFinished);
-    }
-
-    private PingResult pingOnce(String host) {
-        Process process = null;
-        try {
-            process = new ProcessBuilder("/system/bin/ping", "-c", "1", "-W", "1", host)
-                    .redirectErrorStream(true)
-                    .start();
-            StringBuilder output = new StringBuilder();
-            try (BufferedReader reader = new BufferedReader(
-                    new InputStreamReader(process.getInputStream(), StandardCharsets.UTF_8))) {
-                String line;
-                while ((line = reader.readLine()) != null) {
-                    output.append(line).append('\n');
-                }
-            }
-            int exitCode = process.waitFor();
-            if (exitCode != 0) return new PingResult(false, Double.NaN);
-            Matcher m = TIME_PATTERN.matcher(output);
-            double rtt = m.find() ? Double.parseDouble(m.group(1)) : Double.NaN;
-            return new PingResult(true, rtt);
-        } catch (IOException e) {
-            return new PingResult(false, Double.NaN);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            return new PingResult(false, Double.NaN);
-        } finally {
-            if (process != null) {
-                process.destroy();
-            }
-        }
-    }
-
-    private void updateResultText() {
-        long elapsedSec = (System.currentTimeMillis() - startTimeMs) / 1000;
-        double lossPct = sent == 0 ? 0.0 : (100.0 * lost / sent);
-        String latency = latencySamples > 0
-                ? String.format(Locale.US, "min=%.1f avg=%.1f max=%.1f ms",
-                        minMs, sumMs / latencySamples, maxMs)
-                : "N/A";
-        resultText.setText(String.format(Locale.US,
-                "目标 Target: %s\n"
-                        + "已发送 Sent: %d   丢失 Lost: %d (%.1f%%)\n"
-                        + "延迟 Latency: %s\n"
-                        + "已运行 Elapsed: %s",
-                pingTarget, sent, lost, lossPct, latency, formatElapsed(elapsedSec)));
-    }
-
-    private static String formatElapsed(long totalSeconds) {
-        return String.format(Locale.US, "%02d:%02d:%02d",
-                totalSeconds / 3600, (totalSeconds % 3600) / 60, totalSeconds % 60);
-    }
-
-    private void onStressTestFinished() {
-        running = false;
-        stopButton.setEnabled(false);
-        if (ethernetLost) {
-            resultText.setText("设备已断开 / Device disconnected");
-            startButton.setEnabled(false);
-        } else {
-            updateStartButtonAvailability();
-        }
-    }
-
-    private static final class PingResult {
-        final boolean received;
-        final double rttMs;
-
-        PingResult(boolean received, double rttMs) {
-            this.received = received;
-            this.rttMs = rttMs;
-        }
+        toast("Settings not available. 无法打开设置。");
     }
 }
