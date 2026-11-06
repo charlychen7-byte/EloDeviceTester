@@ -1,7 +1,6 @@
 package com.elotouch.devicetester.modules.usbstorage;
 
 import android.Manifest;
-import android.app.AlertDialog;
 import android.content.ActivityNotFoundException;
 import android.content.BroadcastReceiver;
 import android.content.Context;
@@ -17,6 +16,7 @@ import android.os.Build;
 import android.os.storage.StorageManager;
 import android.os.storage.StorageVolume;
 import android.provider.DocumentsContract;
+import android.provider.OpenableColumns;
 import android.text.Spanned;
 import android.text.SpannableStringBuilder;
 import android.text.style.ForegroundColorSpan;
@@ -48,9 +48,10 @@ import java.util.Locale;
  * devices (live on attach/detach/mount), lets the user browse each volume, and
  * runs a copy-speed test: U盘文件 → internal Downloads → U盘根目录.
  *
- * <p>The speed test is driven by one USB-root grant: the user picks the root once,
- * then the source file is chosen from an in-app list and step 2 writes back to the
- * same root without any further picker. While a copy runs the page is locked
+ * <p>The first time Step 1 runs it silently asks for one-time write access to the whole
+ * USB volume (the system's tree picker), then opens the system file picker to choose the
+ * source file — both triggered by the same tap, so no separate manual grant step is ever
+ * shown. Step 2 reuses that same grant automatically. While a copy runs the page is locked
  * (buttons greyed, back blocked); leaving the page removes the test files.
  */
 public class UsbStorageActivity extends BaseTestActivity {
@@ -83,12 +84,6 @@ public class UsbStorageActivity extends BaseTestActivity {
     private Uri usbRoot;
     /** Whether the USB root grant was persisted, so cleanup knows to release it. */
     private boolean rootPersisted;
-    /** Action to run once the root picker returns a valid root. */
-    private Runnable pendingAction;
-    /** In-app file browser position: document ids and names from the root down. */
-    private final List<String> navIds = new ArrayList<>();
-    private final List<String> navNames = new ArrayList<>();
-
     /** Every copy run this page session, listed in order on the page. */
     private final List<Run> runs = new ArrayList<>();
     /** Step-1 result: the latest copy in internal Downloads that step 2 reads from. */
@@ -100,11 +95,23 @@ public class UsbStorageActivity extends BaseTestActivity {
     private final List<Uri> testDownloads = new ArrayList<>();
     private final List<Uri> testUsb = new ArrayList<>();
 
-    private final ActivityResultLauncher<Intent> browseLauncher =
-            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> { });
+    /** One-time USB root grant, requested automatically the first time Step 1 runs. */
+    private final ActivityResultLauncher<Intent> pickRoot =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
+                Intent data = r.getData();
+                if (r.getResultCode() == RESULT_OK && data != null && data.getData() != null) {
+                    onRootPicked(data.getData());
+                }
+            });
 
-    private final ActivityResultLauncher<Uri> pickRoot =
-            registerForActivityResult(new ActivityResultContracts.OpenDocumentTree(), this::onRootPicked);
+    /** Step 1 file picker: the chosen file is copied as soon as it is returned. */
+    private final ActivityResultLauncher<Intent> pickFile =
+            registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), r -> {
+                Intent data = r.getData();
+                if (r.getResultCode() == RESULT_OK && data != null && data.getData() != null) {
+                    onUsbFilePicked(data.getData());
+                }
+            });
 
     private final BroadcastReceiver refreshReceiver = new BroadcastReceiver() {
         @Override
@@ -135,7 +142,8 @@ public class UsbStorageActivity extends BaseTestActivity {
         addView(deviceBox);
 
         addSectionTitle("Copy Speed / 拷贝速度测试");
-        addInfo("1) Choose a file on the USB, copy it to Downloads / 从U盘选择文件拷贝到 Downloads；\n"
+        addInfo("1) Choose a file on the USB, copy it to Downloads / 从U盘选择文件拷贝到 Downloads"
+                + "（首次点击会先请求U盘访问权限，无需额外手动授权）；\n"
                 + "2) Copy that Downloads file back to the USB root / 拷回U盘根目录。\n"
                 + "Speed = size ÷ time, including flush to storage. 速度 = 大小 ÷ 耗时（含落盘）。");
         btnStep1 = addButton("1. USB file → Downloads", this::startStep1);
@@ -246,16 +254,6 @@ public class UsbStorageActivity extends BaseTestActivity {
         tv.setTextSize(15);
         tv.setLineSpacing(dp(2), 1f);
         deviceBox.addView(tv, lp);
-
-        // Always enabled (unless a copy runs): the picker resolves the volume itself,
-        // so a missing mount path or state must not grey the button out.
-        Button b = new Button(this);
-        b.setAllCaps(false);
-        b.setText("Browse Device " + index + " / 浏览设备 " + index);
-        b.setEnabled(!copying);
-        b.setOnClickListener(x -> browseVolume(v));
-        deviceBox.addView(b, lp);
-        deviceButtons.add(b);
     }
 
     /** Removable, non-primary volumes: the external USB/OTG storage. */
@@ -344,21 +342,6 @@ public class UsbStorageActivity extends BaseTestActivity {
         return fs;
     }
 
-    private void browseVolume(StorageVolume v) {
-        Intent intent = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
-                ? v.createOpenDocumentTreeIntent()
-                : new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
-        try {
-            browseLauncher.launch(intent);
-        } catch (ActivityNotFoundException e) {
-            Log.w(TAG, "No document picker for volume " + v.getDescription(this), e);
-            toast("No file browser available. 无可用的文件浏览器。");
-        } catch (SecurityException e) {
-            Log.w(TAG, "Picker denied for volume " + v.getDescription(this), e);
-            toast("Browse not permitted. 无权限浏览该存储。");
-        }
-    }
-
     // ----------------------------------------------------------------- USB root
 
     /** Volume root of the first removable volume, used as the picker's starting point. */
@@ -376,22 +359,41 @@ public class UsbStorageActivity extends BaseTestActivity {
         return null;
     }
 
-    /** Run {@code action} with a USB root in hand, asking for one first if needed. */
-    private void withUsbRoot(Runnable action) {
-        if (usbRoot != null) {
-            action.run();
+    // ----------------------------------------------------------------- step 1: USB → Downloads
+
+    /** Requests the USB root grant first (if needed), then opens the file picker. */
+    private void startStep1() {
+        if (copying) {
             return;
         }
-        pendingAction = action;
-        pickRoot.launch(initialRootUri());
+        if (usbRoot == null) {
+            requestUsbRoot();
+            return;
+        }
+        launchFilePicker();
     }
 
-    private void onRootPicked(Uri tree) {
-        Runnable next = pendingAction;
-        pendingAction = null;
-        if (tree == null) {
-            return;
+    /**
+     * Asks for one-time write access to the whole USB volume via the system's tree
+     * picker. On success this flows straight into the file picker, so the grant and
+     * the file choice together read as a single "Step 1" tap to the user.
+     */
+    private void requestUsbRoot() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+        Uri initial = initialRootUri();
+        if (initial != null) {
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initial);
         }
+        try {
+            pickRoot.launch(intent);
+        } catch (ActivityNotFoundException e) {
+            Log.w(TAG, "No tree picker available", e);
+            toast("No file browser available. 无可用的文件浏览器。");
+        }
+    }
+
+    /** Validates and persists the USB root grant, then opens the file picker automatically. */
+    private void onRootPicked(Uri tree) {
         if (!UsbCopyEngine.isTreeRoot(tree)) {
             toast("Please select the USB root folder 请选择 U 盘根目录");
             return;
@@ -404,120 +406,57 @@ public class UsbStorageActivity extends BaseTestActivity {
         } catch (RuntimeException e) {
             rootPersisted = false;  // grant is still valid while this page is open
         }
-        if (next != null) {
-            next.run();
+        toast("USB root granted 已授权 U 盘根目录");
+        launchFilePicker();
+    }
+
+    /** Opens the system file picker; choosing a file starts the copy straight away. */
+    private void launchFilePicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        Uri initial = initialRootUri();
+        if (initial != null) {
+            intent.putExtra(DocumentsContract.EXTRA_INITIAL_URI, initial);
+        }
+        try {
+            pickFile.launch(intent);
+        } catch (ActivityNotFoundException e) {
+            Log.w(TAG, "No file picker available", e);
+            toast("No file browser available. 无可用的文件浏览器。");
         }
     }
 
-    // ----------------------------------------------------------------- step 1: USB → Downloads
-
-    private void startStep1() {
-        if (copying) {
-            return;
-        }
-        withUsbRoot(this::openFileBrowser);
-    }
-
-    private void openFileBrowser() {
-        navIds.clear();
-        navNames.clear();
-        navIds.add(DocumentsContract.getTreeDocumentId(usbRoot));
-        navNames.add("USB root");
-        loadBrowser();
-    }
-
-    /** Lists the current in-app folder on a worker thread, then shbuyongows it. */
-    private void loadBrowser() {
-        final Uri root = usbRoot;
-        final String docId = navIds.get(navIds.size() - 1);
-        final String label = String.join(" / ", navNames);
+    /** Reads the picked file's name, size and type off the UI thread, then starts step 1. */
+    private void onUsbFilePicked(Uri uri) {
         runAsync(() -> {
-            List<Entry> entries = listChildren(root, docId);
-            ui(() -> showBrowser(label, entries));
+            String name = "file";
+            long size = -1;
+            try (Cursor c = getContentResolver().query(uri,
+                    new String[] {OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE},
+                    null, null, null)) {
+                if (c != null && c.moveToFirst()) {
+                    if (!c.isNull(0)) {
+                        name = c.getString(0);
+                    }
+                    if (!c.isNull(1)) {
+                        size = c.getLong(1);
+                    }
+                }
+            } catch (RuntimeException e) {
+                Log.w(TAG, "Cannot read picked file metadata", e);
+            }
+            String type = getContentResolver().getType(uri);
+            final String mime = type != null ? type : "application/octet-stream";
+            final String fileName = name;
+            final long fileSize = size;
+            ui(() -> startStep1For(uri, fileName, mime, fileSize));
         });
     }
 
-    private List<Entry> listChildren(Uri root, String docId) {
-        List<Entry> out = new ArrayList<>();
-        Uri children = DocumentsContract.buildChildDocumentsUriUsingTree(root, docId);
-        String[] cols = {
-                DocumentsContract.Document.COLUMN_DOCUMENT_ID,
-                DocumentsContract.Document.COLUMN_DISPLAY_NAME,
-                DocumentsContract.Document.COLUMN_MIME_TYPE,
-                DocumentsContract.Document.COLUMN_SIZE};
-        try (Cursor c = getContentResolver().query(children, cols, null, null, null)) {
-            if (c == null) {
-                return out;
-            }
-            while (c.moveToNext()) {
-                Entry e = new Entry();
-                e.docId = c.getString(0);
-                e.name = c.getString(1);
-                e.mime = c.getString(2);
-                e.size = c.isNull(3) ? -1 : c.getLong(3);
-                e.dir = DocumentsContract.Document.MIME_TYPE_DIR.equals(e.mime);
-                out.add(e);
-            }
-        } catch (RuntimeException e) {
-            Log.w(TAG, "Cannot list USB folder", e);
-        }
-        // Folders first, then files, each alphabetically.
-        out.sort((a, b) -> a.dir != b.dir ? (a.dir ? -1 : 1)
-                : String.CASE_INSENSITIVE_ORDER.compare(a.name, b.name));
-        return out;
-    }
-
-    private void showBrowser(String label, List<Entry> entries) {
-        boolean canUp = navIds.size() > 1;
-        List<String> items = new ArrayList<>();
-        List<Entry> map = new ArrayList<>();  // parallel to items; null = "up"
-        if (canUp) {
-            items.add("⬆ .. (up 上一级)");
-            map.add(null);
-        }
-        for (Entry e : entries) {
-            if (e.dir) {
-                items.add("📁 " + e.name);
-                map.add(e);
-            }
-        }
-        for (Entry e : entries) {
-            if (!e.dir) {
-                String size = e.size > 0 ? String.format(Locale.US, "  (%.1f MB)", e.size / 1048576.0) : "";
-                items.add("📄 " + e.name + size);
-                map.add(e);
-            }
-        }
-        if (items.isEmpty()) {
-            toast("Empty folder 空文件夹");
-            return;
-        }
-        new AlertDialog.Builder(this)
-                .setTitle("Select file 选择文件\n" + label)
-                .setItems(items.toArray(new String[0]), (d, which) -> onBrowserItem(map.get(which)))
-                .setNegativeButton("Cancel 取消", null)
-                .show();
-    }
-
-    private void onBrowserItem(Entry e) {
-        if (e == null) {  // up
-            navIds.remove(navIds.size() - 1);
-            navNames.remove(navNames.size() - 1);
-            loadBrowser();
-        } else if (e.dir) {
-            navIds.add(e.docId);
-            navNames.add(e.name);
-            loadBrowser();
-        } else {
-            startStep1For(e);
-        }
-    }
-
-    private void startStep1For(Entry e) {
-        Uri src = DocumentsContract.buildDocumentUriUsingTree(usbRoot, e.docId);
-        String mime = e.mime != null ? e.mime : "application/octet-stream";
+    private void startStep1For(Uri src, String name, String mime, long size) {
+        Runnable go = () -> doStep1(src, name, mime, size);
         // Pre-Q Downloads is a public folder, so it needs the write permission first.
-        Runnable go = () -> doStep1(src, e.name, mime, e.size);
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
             go.run();
         } else {
@@ -580,7 +519,7 @@ public class UsbStorageActivity extends BaseTestActivity {
             toast("Run step 1 first 请先完成步骤 1");
             return;
         }
-        withUsbRoot(() -> doStep2(usbRoot));
+        doStep2(usbRoot);
     }
 
     private void doStep2(Uri tree) {
@@ -827,15 +766,6 @@ public class UsbStorageActivity extends BaseTestActivity {
             return String.format(Locale.US, "#%d %s  %s  %.2f MB  %.2f s  → %.2f MB/s",
                     no, label, file, bytes / (1024.0 * 1024.0), seconds, mbps);
         }
-    }
-
-    /** One row of the in-app file browser. */
-    private static final class Entry {
-        String docId;
-        String name;
-        String mime;
-        long size;
-        boolean dir;
     }
 
     /**

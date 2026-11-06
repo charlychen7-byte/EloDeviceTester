@@ -49,33 +49,29 @@ public enum TestModule {
     CPU("CPU / 处理器", "⚙️", CpuActivity.class, HardwareDetector.Feature.ALWAYS),
     BATTERY("Battery / 电池", "🔋", BatteryActivity.class, HardwareDetector.Feature.ALWAYS),
     AUDIO("Audio / 音频", "🔊", AudioActivity.class, HardwareDetector.Feature.ALWAYS),
-    DISPLAY("Display / 显示", "🖥️", DisplayActivity.class, HardwareDetector.Feature.ALWAYS),
-    TOUCH("Touch / 触摸", "👆", TouchActivity.class, HardwareDetector.Feature.TOUCH),
-    VIBRATOR("Vibrator / 振动", "📳", VibratorActivity.class, HardwareDetector.Feature.VIBRATOR),
-    CAMERA("Camera / 相机", "📷", CameraActivity.class, HardwareDetector.Feature.CAMERA),
-    GPS("GPS / 定位", "🛰️", GpsActivity.class, HardwareDetector.Feature.GPS),
-    NFC("NFC", "📇", NfcActivity.class, HardwareDetector.Feature.NFC),
-    // Wi-Fi, Bluetooth and Serial use vector icons: no emoji reads as those.
+    ETHERNET("Ethernet / 有线网络", "🔗", EthernetActivity.class, HardwareDetector.Feature.ALWAYS),
     WIFI("Wi-Fi / 无线网络", R.drawable.ic_wifi, WifiActivity.class, HardwareDetector.Feature.WIFI),
-    // MAC address readout + button to open system Bluetooth settings.
     BLUETOOTH("Bluetooth / 蓝牙", R.drawable.ic_bluetooth, BluetoothActivity.class,
             HardwareDetector.Feature.BLUETOOTH),
-    // iBeacon: BLE scan, GATT connect and advertising. Greyed out without BLE.
-    IBEACON("iBeacon / 信标", R.drawable.ic_ibeacon, IBeaconActivity.class, HardwareDetector.Feature.BLE),
-    SENSORS("Sensors / 传感器", "🧭", SensorsActivity.class, HardwareDetector.Feature.SENSORS),
-    SERIAL_IO("Serial Port / 串口测试", R.drawable.ic_serial, SerialActivity.class,
-            HardwareDetector.Feature.ALWAYS),
-    //DISPLAY_EXT("Display Ext / 双屏", "📺", DisplayExtActivity.class, HardwareDetector.Feature.ALWAYS),
-    ETHERNET("Ethernet / 有线网络", "🔗", EthernetActivity.class, HardwareDetector.Feature.ALWAYS),
     CELLULAR("Cellular / 蜂窝网络", R.drawable.ic_signal, CellularActivity.class,
             HardwareDetector.Feature.CELLULAR),
     PING("Ping / 连通性", "🌐", PingActivity.class, HardwareDetector.Feature.ALWAYS),
-    // Opens speedtest.net in a WebView; needs network access only.
     SPEED_TEST("Speed Test / 网速测试", R.drawable.ic_speedtest, SpeedTestWebActivity.class,
             HardwareDetector.Feature.ALWAYS),
-    // Single-test module: goes straight to the iperf3 test page, which already
-    // carries its own description, parameters and Start/Stop.
     IPERF("iperf3 / 网络吞吐", "📈", IperfActivity.class, HardwareDetector.Feature.ALWAYS),
+    USB_STORAGE("USB Storage / USB 存储", R.drawable.ic_usb, UsbStorageActivity.class,
+            HardwareDetector.Feature.ALWAYS),
+    IBEACON("iBeacon / 信标", R.drawable.ic_ibeacon, IBeaconActivity.class, HardwareDetector.Feature.BLE),
+    CAMERA("Camera / 相机", "📷", CameraActivity.class, HardwareDetector.Feature.CAMERA),
+    GPS("GPS / 定位", "🛰️", GpsActivity.class, HardwareDetector.Feature.GPS),
+    NFC("NFC", "📇", NfcActivity.class, HardwareDetector.Feature.NFC),
+    VIBRATOR("Vibrator / 振动", "📳", VibratorActivity.class, HardwareDetector.Feature.VIBRATOR),
+    SERIAL_IO("Serial Port / 串口测试", R.drawable.ic_serial, SerialActivity.class,
+            HardwareDetector.Feature.ALWAYS),
+    SENSORS("Sensors / 传感器", "🧭", SensorsActivity.class, HardwareDetector.Feature.SENSORS),
+    TOUCH("Touch / 触摸", "👆", TouchActivity.class, HardwareDetector.Feature.TOUCH),
+    DISPLAY("Display / 显示", "🖥️", DisplayActivity.class, HardwareDetector.Feature.ALWAYS),
+    //DISPLAY_EXT("Display Ext / 双屏", "📺", DisplayExtActivity.class, HardwareDetector.Feature.ALWAYS),
     CASH_DRAWER("Cash Drawer / 钱箱", "💰", CashDrawerActivity.class,
             HardwareDetector.Feature.USB_HOST),
     PAYMENT("Payment / 支付", "💳", PaymentActivity.class, HardwareDetector.Feature.ALWAYS),
@@ -85,10 +81,6 @@ public enum TestModule {
     // disables Start rather than the grid hiding the module, because whether
     // provisioning happened is not a hardware fact.
     REBOOT_STRESS("Reboot Stress / 重启压力", "🔁", RebootStressActivity.class,
-            HardwareDetector.Feature.ALWAYS),
-    // Lists removable (USB/OTG) storage volumes and mass-storage devices; always shown,
-    // the page reports "not detected" itself when nothing is attached.
-    USB_STORAGE("USB Storage / USB 存储", R.drawable.ic_usb, UsbStorageActivity.class,
             HardwareDetector.Feature.ALWAYS);
 
     public final String title;
